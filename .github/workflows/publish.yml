@@ -8,8 +8,14 @@
 # The job refuses to publish if the tag and package.json disagree, so a release
 # tagged v1.2.0 can never ship a tarball that says 1.1.0.
 #
-# Needs one repository secret, NPM_TOKEN — an npm automation token with publish
-# rights on the @openfray scope.
+# There is no token. Publishing goes through npm Trusted Publishing: npm is told to
+# trust this repository and this workflow file by name, and the job proves who it is
+# with a short-lived OIDC credential issued per run. Nothing long-lived exists to leak
+# or rotate, and provenance is attached automatically.
+#
+# Configured at npmjs.com under the package's Settings → Trusted Publisher:
+#   repository  OpenFrayApp/dice
+#   workflow    publish.yml
 name: Publish to npm
 
 on:
@@ -24,8 +30,9 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      # Lets npm attach provenance: a signed, public record of which commit and which
-      # workflow built the tarball, so nobody has to take our word for what is in it.
+      # The OIDC credential npm exchanges for publish rights, and what lets it attach
+      # provenance: a signed public record of which commit and workflow built the
+      # tarball, so nobody has to take our word for what is inside it.
       id-token: write
     steps:
       - uses: actions/checkout@v5
@@ -34,6 +41,9 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+
+      - name: Use an npm new enough for trusted publishing
+        run: npm install -g npm@latest
 
       - run: npm ci
 
@@ -51,6 +61,4 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish --access public
