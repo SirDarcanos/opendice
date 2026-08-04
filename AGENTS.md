@@ -50,6 +50,15 @@ dice, not a rule about what a roll means.
 - **Never add "anti-streak" or "feels-fair" logic.** Not as an option, not off by default.
   Suppressing repeats is more detectably rigged over time than honest clumping, and it
   would make any record of the rolls a lie.
+- **Every loop that redraws has a bound.** The rejection loop gives up after 1000 rejections
+  in a row and throws. Every die accepts more than half of all draws, so a working source
+  never comes close; a source that returns one rejected value forever would otherwise spin
+  the process to a halt, which it did until it was bounded.
+
+`rand` is the one hole nothing here can close: a `RollResult` records what the dice showed
+and never which source produced it, so a rigged source is indistinguishable from the CSPRNG
+in the output. That is documented rather than fixed — an attestation field would be a claim
+the library cannot check. Callers must not let untrusted code choose `rand`.
 
 A change here can pass every test and still be wrong. If you touch it, reason about it
 explicitly in the pull request.
@@ -60,9 +69,18 @@ explicitly in the pull request.
   as alternatives, so `4d6kh3!` throws. That is deliberate: "keep the highest three" has no
   obvious meaning once each die is an open-ended chain. Don't "fix" it without deciding
   what it should mean.
-- **Explosion chains are capped at 100 per die**, and a die of fewer than two sides never
-  explodes. Both exist so a loaded `RandomSource` cannot hang the process — not because a
-  fair die might reach them.
+- **A die explodes at most 100 times**, so `results` can hold 101 entries — the first roll
+  plus 100 explosions. A die of fewer than two sides never explodes. Both exist so a loaded
+  `RandomSource` cannot hang the process — not because a fair die might reach them.
+- **A formula is untrusted input, and every part of it that drives work is bounded**: 1000
+  dice per roll counting bonuses, 2³² sides per die, 1000 characters per formula. Each was
+  an unbounded loop or allocation before. The sides bound is not a taste call — above 2³²
+  the rejection ceiling rounds down to zero and `rollDie` never returns.
+- **Optional fields are read through `ownProperties`.** Absence is how `keep`, `explode`,
+  `advantage`, `tag` and every `RollContext` option are read, and a plain `{}` inherits from
+  `Object.prototype` — so without it, anything able to pollute that prototype could pick the
+  random source or forge a tag, and the roll log would report the forgery as fact. Anything
+  the library both creates and later reads an optional field from must go through it.
 - **`results` is flat.** An exploding group's `results` holds every roll it made, so it can
   be longer than the die count. The chain is still readable: a roll equal to `sides` is
   what caused the next one.

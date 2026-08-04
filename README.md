@@ -61,7 +61,7 @@ roll('1d20') //      one twenty-sided die
 roll('3d8') //       three eight-sided dice, added together
 roll('1d20+5') //    one d20, plus 5
 roll('2d6-1') //     two d6, minus 1
-roll('1d78') //      any number of sides works, not just the usual ones
+roll('1d78') //      unusual numbers of sides are fine, not just the usual ones
 ```
 
 ### The formula language
@@ -199,6 +199,15 @@ roll('2d10+8 fire', { tags: ['fire', 'cold'] }).tag // 'fire'
 roll('2d10+8 fire') // throws an error
 ```
 
+Give it a list, even for a single word. A bare `'fire'` is refused, because JavaScript
+reads a string as its separate letters — it would accept `f`, `i`, `r` and `e` and nothing
+else:
+
+```ts
+roll('2d10+8 fire', { tags: ['fire'] }) // right
+roll('2d10+8 fire', { tags: 'fire' }) //   throws an error
+```
+
 That may look fussy, but "fire" means nothing on its own. It might be a category, a colour,
 a material, a kind of damage — that depends entirely on what you are building. So the
 library knows a formula _can_ end in a label, and nothing about which labels are real. You
@@ -239,6 +248,27 @@ const r = roll('1d20+1d4')
 r.dice[0].naturalHigh // the d20
 r.dice[1].naturalHigh // the d4
 ```
+
+## Limits
+
+A formula is usually something a person typed, so there is a limit on what one can ask
+for. Each of these is refused with an error rather than attempted:
+
+| Limit                             | Why                                                                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **1,000 dice** in one roll        | Every die is rolled separately, so `99999999d6` is a way of asking a program to stop responding rather than a roll anyone wants.     |
+| **4,294,967,296 sides** on a die  | That is how many faces one random number covers. More would mean drawing twice for one die, and the fairness rests on one draw each. |
+| **1,000 characters** in a formula | Longer than anyone types.                                                                                                            |
+| **100 explosions** on one die     | See [exploding dice](#exploding-dice).                                                                                               |
+
+Bonuses count towards the dice limit, so this is refused just as `roll('1200d6')` is:
+
+```ts
+roll('600d6', { bonuses: ['600d6'] }) // throws an error
+```
+
+All four sit far above ordinary use. If you are reaching one, something is generating
+formulas rather than a person writing them.
 
 ## `parseFormula(text, options?)`
 
@@ -303,7 +333,8 @@ rollDie(78) // a number from 1 to 78
 Use it when you only need one die and don't need the breakdown. It uses exactly the same
 fair randomness as `roll()`.
 
-It throws if `sides` isn't a whole number of 1 or more.
+It throws if `sides` isn't a whole number from 1 to 4,294,967,296 — see
+[Limits](#limits).
 
 ## `cryptoRandom()`
 
@@ -384,6 +415,11 @@ function faces(...list: number[]) {
 roll('2d6+3', { rand: faces(5, 3) }).total // 11, every time
 ```
 
+Only ever pass a source your own code decides on. A result says what the dice showed, never
+where the numbers came from, so a rigged source produces a result that looks exactly like a
+fair one — there is no way to tell them apart afterwards. If someone using your program can
+choose the source, they can choose the roll.
+
 ## About the randomness
 
 You get all of this from `roll()` without asking. There is nothing to switch on.
@@ -398,6 +434,10 @@ You get all of this from `roll()` without asking. There is nothing to switch on.
 - **Nothing is ever nudged.** There's no "you've rolled badly, here's a good one" logic and
   there never will be. Real dice come up 1 three times in a row sometimes; so do these. Any
   code that smoothed that out would make any record of the rolls a lie, and people notice.
+- **Nothing outside your program can reach in and change it.** The options you pass are read
+  as you passed them, so other code running alongside cannot slip in its own randomness, a
+  label, or an extra die. The one exception is the `rand` option above — that one is yours
+  to guard, because it replaces the randomness outright.
 
 ## What this library does not do
 
