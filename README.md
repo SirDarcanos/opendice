@@ -31,7 +31,7 @@ result.modifier //        3       — the +3
 result.formula //         '2d6+3' — what you asked for
 ```
 
-So this roll was 5 + 3 + 3 = 11, and you can show a player exactly that.
+So this roll was 5 + 3 + 3 = 11, and you can show someone exactly that.
 
 ## What you can use
 
@@ -108,15 +108,15 @@ r.dice[0]
 // }
 ```
 
-`results` and `kept` differ whenever dice are thrown away — with advantage, or with
-`kh`/`kl`. Keeping both means you can show the player the die that was dropped instead of
-hiding it.
+`results` and `kept` differ whenever dice are thrown away — with `adv`/`dis`, or with
+`kh`/`kl`. Keeping both means you can show the die that was dropped instead of hiding it,
+so nobody has to take the total on trust.
 
 ### Why `modifiers` as well as `modifier`
 
-`modifier` is the sum. `modifiers` is the list. If a character has a +1 of their own and
-something else applies a −6, the sum is −5 — which tells the player nothing about where it
-came from. The list lets you print `+1 −6` instead.
+`modifier` is the sum. `modifiers` is the list. If one thing adds 1 and another takes away
+6, the sum is −5 — which says nothing about where it came from. The list lets you print
+`+1 −6` instead, so the arithmetic is visible.
 
 ### Options
 
@@ -134,8 +134,8 @@ roll('1d20+7', {
 **`advantage`** does the same as writing `adv` in the formula. Use whichever suits: the
 formula when it's fixed, the option when your code decides at run time.
 
-If two different things in your game each grant advantage and disadvantage, work out the
-net result yourself and pass one answer. This library does not know your rules.
+If several things in your project would each set this, work out the net result yourself
+and pass one answer. This library has no rules of its own to apply.
 
 **`bonuses`** adds extra numbers or extra dice, without changing the formula text. It takes
 plain numbers and formula fragments:
@@ -144,8 +144,8 @@ plain numbers and formula fragments:
 roll('1d20+7', { bonuses: [2, '1d4'] }) // rolls 1d20 + 7 + 2 + 1d4
 ```
 
-This is for bonuses your code discovers at run time — a spell that adds a d4, say — so you
-don't have to build formula strings by hand.
+This is for extras your code works out while running, so you don't have to build formula
+strings by hand.
 
 ## Labels
 
@@ -160,43 +160,26 @@ roll('2d10+8 fire', { tags: ['fire', 'cold'] }).tag // 'fire'
 roll('2d10+8 fire') // throws an error
 ```
 
-That may look fussy, but "fire" means nothing to a dice library — it's a damage type in one
-game, an element or a suit in another. So the library knows a formula _can_ end in a label
-and nothing about which labels are real. You supply the list.
+That may look fussy, but "fire" means nothing on its own. It might be a category, a colour,
+a material, a kind of damage — that depends entirely on what you are building. So the
+library knows a formula _can_ end in a label, and nothing about which labels are real. You
+supply the list.
 
 An unknown word is an error rather than a silent label, because a stray word at the end of
 a formula is usually a typo. Better to see the mistake than to have it quietly travel
 along.
 
-## Natural 20s and 1s
+## Highest and lowest faces
 
 `naturalHigh` is `true` when the kept d20 came up 20. `naturalLow` is `true` when it came
 up 1.
 
-That is all they mean: **what the die showed**. Whether a 20 is a critical hit, an
-automatic success, or nothing at all is your game's business, so you don't have to declare
-anything to get these — a saving throw reports them the same as an attack does.
+That is all they mean: **what the die showed**. Whether hitting the top of the die is
+special, and what happens if it is, is entirely up to you — so you don't have to declare
+anything to get these. Every roll reports them.
 
-Both are `false` unless exactly one d20 was kept. A 20 on one of four dice isn't a natural
-anything.
-
-### Critical hits are not in here
-
-This library has no idea what a critical hit is. If your game doubles damage on one, you do
-it — and everything you need is already on the result. The three common ways:
-
-```ts
-// 1. Roll twice as many dice: change the formula.
-roll('4d10+8') // instead of 2d10+8
-
-// 2. Double the dice total, leaving the modifier alone.
-const r = roll('2d6+5')
-const total = r.dice[0].total * 2 + r.modifier
-
-// 3. Maximise the dice, then roll them as well.
-const g = roll('2d6').dice[0]
-const total2 = g.results.length * g.sides + g.total
-```
+Both are `false` unless exactly one d20 was kept. A 20 on one of four dice isn't the sole
+result of anything.
 
 ## `parseFormula(text, options?)`
 
@@ -222,7 +205,7 @@ isValid('two dice') // false
 ```
 
 It throws on anything it can't read, so a bad formula fails at the moment the person typed
-it rather than in the middle of a game.
+it rather than somewhere further along.
 
 What it returns:
 
@@ -289,8 +272,7 @@ keptFlags(r.dice[0]) // [false, true]
 ```
 
 It exists for showing results on screen. Line the flags up with `results` and you can grey
-out the 4 while highlighting the 17, so a player sees both dice and understands why one
-counted:
+out the 4 while highlighting the 17, so someone can see both dice and why one counted:
 
 ```ts
 const group = r.dice[0]
@@ -356,22 +338,21 @@ You get all of this from `roll()` without asking. There is nothing to switch on.
 - **Every die gets its own draw.** Several dice are never squeezed out of one number.
 - **Nothing is ever nudged.** There's no "you've rolled badly, here's a good one" logic and
   there never will be. Real dice come up 1 three times in a row sometimes; so do these. Any
-  code that smoothed that out would make your roll log a lie, and players notice.
+  code that smoothed that out would make any record of the rolls a lie, and people notice.
 
 ## What this library does not do
 
-- **It doesn't know any game's rules.** No characters, no conditions, no spells, no
-  critical hits. It doesn't even track what a roll was _for_ — there's no "roll type" to
-  set, because a setting the library never reads would only look like it did something.
-- **It doesn't decide advantage for you.** You work out the net result and tell it.
+- **It has no rules of its own.** It rolls dice and reports what happened. Whether a high
+  roll is good, what a label stands for, whether a total passes or fails — all yours.
+- **It doesn't decide `adv`/`dis` for you.** You work out the net result and tell it.
 - **Exploding dice aren't supported yet.** `1d6!` is recognised but rejected.
 
 ## Where it came from
 
-This was the dice engine inside [OpenFray](https://openfray.app), a combat tracker for
-Dungeons and Dragons. Every roll in the app went through one function, so that randomness
-had exactly one place to live and could be checked in one place. That turned out to be
-useful on its own, so it moved out here.
+This was the dice engine inside [OpenFray](https://openfray.app), where every roll went
+through one function so that randomness had exactly one place to live and could be checked
+in one place. That turned out to be useful on its own, so it moved out here — with
+everything that knew about OpenFray's subject matter left behind.
 
 OpenFray is licensed AGPL-3.0. These dice are MIT: they aren't the product, and they're
 more use to people if they're easy to reuse.
