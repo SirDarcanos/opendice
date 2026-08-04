@@ -150,6 +150,9 @@ roll('1d20+7', { bonuses: [2, '1d4'] }) // rolls 1d20 + 7 + 2 + 1d4
 This is for extras your code works out while running, so you don't have to build formula
 strings by hand.
 
+A plain number has to be a whole one, the same as a `+3` written into a formula. A fraction,
+`NaN` or an infinity is refused rather than folded into the total.
+
 ## Exploding dice
 
 Put a `!` after a die and it becomes **exploding**: whenever it lands on its highest face,
@@ -254,12 +257,13 @@ r.dice[1].naturalHigh // the d4
 A formula is usually something a person typed, so there is a limit on what one can ask
 for. Each of these is refused with an error rather than attempted:
 
-| Limit                             | Why                                                                                                                                  |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **1,000 dice** in one roll        | Every die is rolled separately, so `99999999d6` is a way of asking a program to stop responding rather than a roll anyone wants.     |
-| **4,294,967,296 sides** on a die  | That is how many faces one random number covers. More would mean drawing twice for one die, and the fairness rests on one draw each. |
-| **1,000 characters** in a formula | Longer than anyone types.                                                                                                            |
-| **100 explosions** on one die     | See [exploding dice](#exploding-dice).                                                                                               |
+| Limit                                | Why                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **1,000 dice** in one roll           | Every die is rolled separately, so `99999999d6` is a way of asking a program to stop responding rather than a roll anyone wants.     |
+| **4,294,967,296 sides** on a die     | That is how many faces one random number covers. More would mean drawing twice for one die, and the fairness rests on one draw each. |
+| **1,000 characters** in a formula    | Longer than anyone types.                                                                                                            |
+| **100 explosions** on one die        | See [exploding dice](#exploding-dice).                                                                                               |
+| **A total of 9,007,199,254,740,991** | Above that, JavaScript stops counting in exact whole numbers. A total that cannot be exact is refused rather than quietly rounded.   |
 
 Bonuses count towards the dice limit, so this is refused just as `roll('1200d6')` is:
 
@@ -267,8 +271,11 @@ Bonuses count towards the dice limit, so this is refused just as `roll('1200d6')
 roll('600d6', { bonuses: ['600d6'] }) // throws an error
 ```
 
-All four sit far above ordinary use. If you are reaching one, something is generating
+All of these sit far above ordinary use. If you are reaching one, something is generating
 formulas rather than a person writing them.
+
+A keep rule has to keep at least one die, so `4d6kh0` is refused too — it reads as a typo
+for `4d6kh1`, and quietly counting nothing would be worse than saying so.
 
 ## `parseFormula(text, options?)`
 

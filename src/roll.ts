@@ -13,7 +13,8 @@
 
 import { cryptoRandom, rollDie, type RandomSource } from './rng.ts'
 import {
-  assertDiceLimit,
+  MAX_EXPLOSIONS,
+  assertRollable,
   ownProperties,
   parseFormula,
   type AdvantageState,
@@ -87,13 +88,16 @@ function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'):
 
 /** Turn extra bonuses (numbers or formula fragments) into additive terms. */
 function bonusTerms(bonuses: (number | string)[]): Term[] {
-  return bonuses.flatMap((b) =>
-    typeof b === 'number' ? [{ kind: 'flat', value: b } satisfies FlatTerm] : parseFormula(b).terms,
-  )
+  return bonuses.flatMap((b) => {
+    if (typeof b !== 'number') return parseFormula(b).terms
+    // A formula can only say a whole number, and a bonus is the same arithmetic. NaN or
+    // a fraction would otherwise pass straight through into the total.
+    if (!Number.isSafeInteger(b)) {
+      throw new Error(`A numeric bonus must be a whole number that stays exact, got ${b}`)
+    }
+    return [{ kind: 'flat', value: b } satisfies FlatTerm]
+  })
 }
-
-/** Guards against a loaded `RandomSource`; a fair die never comes near it. */
-const MAX_EXPLOSIONS = 100
 
 /**
  * Roll one die, rolling again while it lands on its top face; returns the whole chain.
@@ -172,7 +176,7 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
   }
   if (options.bonuses && options.bonuses.length > 0) {
     terms = [...terms, ...bonusTerms(options.bonuses)]
-    assertDiceLimit(terms)
+    assertRollable(terms)
   }
 
   const dice: DieGroup[] = []

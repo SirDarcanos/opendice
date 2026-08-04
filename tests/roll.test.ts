@@ -256,6 +256,47 @@ describe('limits', () => {
   it('leaves a roll within the limit alone', () => {
     expect(roll('500d6', { bonuses: ['500d6'] }).dice).toHaveLength(2)
   })
+
+  // A formula can only say a whole number; a bonus is the same arithmetic, and these
+  // used to travel straight through into the total.
+  it('refuses a numeric bonus that is not an exact whole number', () => {
+    expect(() => roll('1d6', { bonuses: [NaN] })).toThrow(/whole number/)
+    expect(() => roll('1d6', { bonuses: [Infinity] })).toThrow(/whole number/)
+    expect(() => roll('1d6', { bonuses: [1.5] })).toThrow(/whole number/)
+    expect(() => roll('1d6', { bonuses: [2 ** 53] })).toThrow(/whole number/)
+  })
+
+  it('takes a negative whole bonus', () => {
+    expect(roll('1d6', { rand: faceSeq(4), bonuses: [-2] }).total).toBe(2)
+  })
+})
+
+describe('negative and signed terms', () => {
+  it('subtracts a whole dice group', () => {
+    const r = roll('-1d6', { rand: faceSeq(4) })
+    expect(r.dice[0].sign).toBe(-1)
+    expect(r.dice[0].total).toBe(-4)
+    expect(r.total).toBe(-4)
+  })
+
+  it('reaches a negative total', () => {
+    expect(roll('1d6-10', { rand: faceSeq(3) }).total).toBe(-7)
+    expect(roll('-2d6-3', { rand: faceSeq(4, 5) }).total).toBe(-12)
+  })
+
+  it('keeps the highest of a subtracted advantage roll, then subtracts it', () => {
+    const r = roll('-1d20adv', { rand: faceSeq(4, 18) })
+    expect(r.dice[0].kept).toEqual([18])
+    expect(r.total).toBe(-18)
+  })
+
+  // The grammar has no operators beyond a leading sign, so none of this is arithmetic
+  // it will guess at.
+  it('refuses anything that is not a sum of terms', () => {
+    for (const f of ['1d20+-5', '--5', '1d6+', '1d6*2', '(1d6+1)*2', '1d6^2', '1.5d6', '1d-6']) {
+      expect(() => roll(f)).toThrow()
+    }
+  })
 })
 
 // Every option here is read by asking whether it is there, and `roll('1d20')` passes a

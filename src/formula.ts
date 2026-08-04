@@ -32,6 +32,12 @@ const MAX_FORMULA_LENGTH = 1000
  */
 export const MAX_DICE = 1000
 
+/**
+ * How many times one die may explode, so `results` can hold this many rolls plus the
+ * first. Lives here with the other limits; `roll()` enforces it.
+ */
+export const MAX_EXPLOSIONS = 100
+
 export interface DiceTerm {
   kind: 'dice'
   sign: 1 | -1
@@ -81,11 +87,26 @@ export function ownProperties<T extends object>(source: T): T {
   return Object.assign(Object.create(null), source) as T
 }
 
-/** Throw if these terms together ask for more dice than one roll is allowed. */
-export function assertDiceLimit(terms: Term[]): void {
+/** The largest total these terms could reach, for checking every total stays exact. */
+function largestTotal(terms: Term[]): number {
+  return terms.reduce((sum, t) => {
+    if (t.kind === 'flat') return sum + Math.abs(t.value)
+    return sum + t.count * t.sides * (t.explode ? MAX_EXPLOSIONS + 1 : 1)
+  }, 0)
+}
+
+/** Throw unless these terms can be rolled: few enough dice, and a total that stays exact. */
+export function assertRollable(terms: Term[]): void {
   const count = terms.reduce((n, t) => (t.kind === 'dice' ? n + t.count : n), 0)
   if (count > MAX_DICE) {
     throw new Error(`A roll may use at most ${MAX_DICE} dice, but this one asks for ${count}`)
+  }
+  // Past 2^53 JavaScript starts rounding, so a total would be quietly wrong rather than
+  // large. Dice alone cannot reach it; a written-out number can.
+  if (!Number.isSafeInteger(largestTotal(terms))) {
+    throw new Error(
+      `A roll may not reach a total above ${Number.MAX_SAFE_INTEGER}, where whole numbers stop being exact`,
+    )
   }
 }
 
@@ -113,7 +134,11 @@ function diceTerm(
   } else if (suffix === '!') {
     term.explode = true
   } else if (suffix) {
-    term.keep = { mode: suffix.slice(0, 2) as 'kh' | 'kl', n: Number(suffix.slice(2)) }
+    const n = Number(suffix.slice(2))
+    if (n < 1) {
+      throw new Error(`A keep rule must keep at least one die, but "${suffix}" keeps none`)
+    }
+    term.keep = { mode: suffix.slice(0, 2) as 'kh' | 'kl', n }
   }
   return term
 }
@@ -162,7 +187,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
     pos = re.lastIndex
   }
 
-  assertDiceLimit(terms)
+  assertRollable(terms)
   return ownProperties({
     source,
     terms: terms.map(ownProperties),

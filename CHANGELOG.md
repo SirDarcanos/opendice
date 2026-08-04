@@ -26,6 +26,14 @@ the next release is a major version.
   bonuses, or forge a `tag` on the result — with the roll reporting all of it as fact.
 - Parsing no longer slows down quadratically on a formula padded with whitespace.
 
+### Fixed
+
+- A total that cannot be exact is refused instead of quietly rounded. `1d6+99999999999999999999`
+  reported a rounded number and `1d6+` followed by four hundred nines reported `Infinity`.
+- A numeric `bonuses` entry must be a whole number that stays exact. `NaN`, an infinity and
+  `1.5` used to pass straight through into the total.
+- `4d6kh0` is refused rather than keeping no dice and contributing nothing.
+
 ### Changed
 
 - **Breaking:** `tags` takes a list or a `Set`, and a bare string is now refused. A string

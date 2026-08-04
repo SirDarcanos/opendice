@@ -117,6 +117,26 @@ describe('limits on what a formula may ask for', () => {
   it('rejects a formula too long to have been typed', () => {
     expect(() => parseFormula('1d6' + ' '.repeat(50_000) + '+1')).toThrow(/too long/)
   })
+
+  // Past 2^53 a total stops being exact, so `1d6+99999999999999999999` used to report a
+  // rounded number and `1d6+` four hundred nines used to report Infinity.
+  it('rejects a total too large to stay exact', () => {
+    expect(() => parseFormula('1d6+99999999999999999999')).toThrow(/exact/)
+    expect(() => parseFormula('1d6+' + '9'.repeat(400))).toThrow(/exact/)
+    expect(() => parseFormula('9007199254740991+9007199254740991')).toThrow(/exact/)
+  })
+
+  it('allows the largest total that is still exact', () => {
+    expect(parseFormula(`${Number.MAX_SAFE_INTEGER}`).terms[0]).toMatchObject({
+      value: Number.MAX_SAFE_INTEGER,
+    })
+  })
+
+  // Keeping none of them is not a way of rolling dice, and reads as a typo for kh1.
+  it('rejects a keep rule that keeps no dice', () => {
+    expect(() => parseFormula('4d6kh0')).toThrow(/at least one/)
+    expect(() => parseFormula('4d6kl0')).toThrow(/at least one/)
+  })
 })
 
 // Reading an optional field asks whether it is there, and a plain object inherits from
