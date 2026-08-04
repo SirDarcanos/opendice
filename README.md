@@ -401,7 +401,6 @@ You get all of this from `roll()` without asking. There is nothing to switch on.
 
 - **It has no rules of its own.** It rolls dice and reports what happened. Whether a high
   roll is good, what a label stands for, whether a total passes or fails — all yours.
-- **It doesn't decide `adv`/`dis` for you.** You work out the net result and tell it.
 
 ## Where it came from
 
