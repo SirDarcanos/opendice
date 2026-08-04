@@ -25,6 +25,11 @@ the next release is a major version.
   otherwise supply the `rand` source for a roll that passed none, force advantage, add
   bonuses, or forge a `tag` on the result — with the roll reporting all of it as fact.
 - Parsing no longer slows down quadratically on a formula padded with whitespace.
+- An error no longer repeats the input word for word. `roll('<img src=x onerror=…>')` threw
+  an `Error` whose message carried that markup verbatim and twice — and a caller putting the
+  message on a page, which is what an error about typed input is for, would have put the
+  markup on the page with it. What is quoted is now shortened, and anything a formula could
+  not contain is replaced. Escaping what you display is still the caller's job.
 
 ### Fixed
 

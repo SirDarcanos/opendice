@@ -38,6 +38,9 @@ export const MAX_DICE = 1000
  */
 export const MAX_EXPLOSIONS = 100
 
+/** Characters a formula can legitimately contain; everything else is not one. */
+const FORMULA_CHARACTERS = /[^a-z0-9+\-! ]/gi
+
 export interface DiceTerm {
   kind: 'dice'
   sign: 1 | -1
@@ -85,6 +88,17 @@ export interface ParseOptions {
  */
 export function ownProperties<T extends object>(source: T): T {
   return Object.assign(Object.create(null), source) as T
+}
+
+/**
+ * A short, inert excerpt of input to quote in an error. Errors are the one place raw
+ * input travels back out, and a caller showing one on a page would otherwise be pasting
+ * whatever was typed straight into it. A formula cannot contain anything replaced here,
+ * so nothing a real one would say is lost.
+ */
+function excerpt(text: string): string {
+  const inert = text.replace(FORMULA_CHARACTERS, '?')
+  return inert.length > 40 ? `${inert.slice(0, 40)}…` : inert
 }
 
 /** The largest total these terms could reach, for checking every total stays exact. */
@@ -167,7 +181,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
     expr = expr.slice(0, tagMatch.index)
   }
   expr = expr.replace(/\s+/g, '')
-  if (expr === '') throw new Error(`Empty dice formula: "${source}"`)
+  if (expr === '') throw new Error(`Empty dice formula: "${excerpt(source)}"`)
 
   const terms: Term[] = []
   const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!)?|(\d+))/y
@@ -176,7 +190,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
     re.lastIndex = pos
     const m = re.exec(expr)
     if (!m || m.index !== pos) {
-      throw new Error(`Cannot parse "${source}" near "${expr.slice(pos)}"`)
+      throw new Error(`Cannot parse "${excerpt(source)}" near "${excerpt(expr.slice(pos))}"`)
     }
     const sign: 1 | -1 = m[1] === '-' ? -1 : 1
     if (m[5] !== undefined) {

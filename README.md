@@ -277,6 +277,24 @@ formulas rather than a person writing them.
 A keep rule has to keep at least one die, so `4d6kh0` is refused too — it reads as a typo
 for `4d6kh1`, and quietly counting nothing would be worse than saying so.
 
+## Showing an error to someone
+
+Every error here quotes the text it could not read, so you can show the person what went
+wrong. What it quotes is shortened, and anything a formula could not contain is replaced
+with a `?`:
+
+```ts
+roll('1d6*2') // Error: Cannot parse "1d6?2" near "?2"
+```
+
+That is deliberate. If a formula arrives from a text box on a web page and the error goes
+back onto that page, an error repeating the input word for word would put whatever was
+typed — markup and all — straight into your page. Nothing a real formula says is lost,
+because a formula cannot contain those characters in the first place.
+
+This makes the message safer to show, not safe: **escape anything you put on a page**, from
+here or anywhere else.
+
 ## `parseFormula(text, options?)`
 
 Reads a formula and tells you what it means — **without rolling anything**.

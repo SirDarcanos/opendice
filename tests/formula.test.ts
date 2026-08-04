@@ -139,6 +139,31 @@ describe('limits on what a formula may ask for', () => {
   })
 })
 
+// An error message is the one place raw input travels back out of this library, and a
+// caller showing one on a page would otherwise be pasting whatever was typed into it.
+describe('quoting bad input back', () => {
+  it('strips anything a formula could not contain', () => {
+    const attempt = () => parseFormula('<img src=x onerror=alert(1)>')
+    expect(attempt).toThrow(/Cannot parse/)
+    expect(attempt).not.toThrow(/<img/)
+    expect(attempt).not.toThrow(/onerror=/)
+  })
+
+  it('still shows enough of a typo to find it', () => {
+    expect(() => parseFormula('2d6 + x')).toThrow(/x/)
+    expect(() => parseFormula('1d6*2')).toThrow(/1d6\?2/)
+  })
+
+  it('quotes a bounded amount however long the input', () => {
+    try {
+      parseFormula('<'.repeat(900))
+      expect.unreachable()
+    } catch (e) {
+      expect((e as Error).message.length).toBeLessThan(140)
+    }
+  })
+})
+
 // Reading an optional field asks whether it is there, and a plain object inherits from
 // Object.prototype — so anything that can pollute it could otherwise forge parts of a
 // formula nobody wrote.
