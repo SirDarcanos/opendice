@@ -8,8 +8,16 @@ requests that would.
 
 ## [Unreleased]
 
-Hardening after an adversarial review of the package. Some of it changes the public API, so
-the next release is a major version.
+Nothing yet.
+
+## [1.1.0] — 2026-08-04
+
+Hardening after an adversarial review of the package, and a group multiplier.
+
+Several entries below are marked **Breaking**: they refuse input that 1.0.0 accepted. None
+of it is input a working caller was likely to be sending on purpose, but read those entries
+before upgrading — `tags: 'fire'`, `roll('2+5')`, `1d0`, a formula containing a tab or a
+line break, and a `bonuses` fragment with no dice in it all throw now.
 
 ### Security
 
@@ -111,5 +119,6 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/OpenFrayApp/dice/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/OpenFrayApp/dice/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/OpenFrayApp/dice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/OpenFrayApp/dice/releases/tag/v1.0.0
