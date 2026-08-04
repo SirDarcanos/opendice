@@ -73,6 +73,7 @@ roll('1d78') //      any number of sides works, not just the usual ones
 | `4d6kl3`    | Same, but keep the **l**owest 3.                             |
 | `1d20adv`   | Roll two d20 and keep the higher one. ("advantage")          |
 | `1d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")        |
+| `1d6!`      | Exploding — see [below](#exploding-dice).                    |
 | `2d10 fire` | A label on the end. See [Labels](#labels) — it's never math. |
 
 Spaces are ignored, and capital letters are fine: `2D6 + 3` works.
@@ -146,6 +147,42 @@ roll('1d20+7', { bonuses: [2, '1d4'] }) // rolls 1d20 + 7 + 2 + 1d4
 
 This is for extras your code works out while running, so you don't have to build formula
 strings by hand.
+
+## Exploding dice
+
+Put a `!` after a die and it becomes **exploding**: whenever it lands on its highest face,
+you roll it again and add the new number. If that also lands on the highest face, you roll
+again — so there is no maximum.
+
+```ts
+roll('1d6!') // rolled 6, then 4  → results [6, 4],    total 10
+roll('1d6!') // rolled 6, 6, then 2 → results [6, 6, 2], total 14
+roll('1d6!') // rolled 3          → results [3],       total 3
+```
+
+Several systems use this — Savage Worlds, Shadowrun and Deadlands among them — because it
+lets a small die produce a big number now and then.
+
+Every roll in the chain appears in `results`, in the order it happened, so you can show
+someone how a 14 came out of one d6. You can always tell where a chain started, too: a
+roll equal to the number of sides is what caused the next one.
+
+Each die in a group explodes on its own:
+
+```ts
+roll('3d6!') // first die rolled 6 then 4, the others 2 and 3
+// results: [6, 4, 2, 3], total 15
+```
+
+Two things it will not do:
+
+- **It won't combine with `kh`, `kl`, `adv` or `dis`.** `4d6kh3!` is rejected rather than
+  guessed at, because "keep the highest three" has no obvious meaning once each die is an
+  open-ended chain.
+- **It won't run away.** A die can explode 100 times and then the chain is cut. A fair d6
+  reaching even ten in a row is a one-in-sixty-million event, so this never fires in
+  practice — it's there so a deliberately loaded random source can't hang your program. A
+  one-sided die never explodes at all, since every roll would be a top face.
 
 ## Labels
 
@@ -365,13 +402,12 @@ You get all of this from `roll()` without asking. There is nothing to switch on.
 - **It has no rules of its own.** It rolls dice and reports what happened. Whether a high
   roll is good, what a label stands for, whether a total passes or fails — all yours.
 - **It doesn't decide `adv`/`dis` for you.** You work out the net result and tell it.
-- **Exploding dice aren't supported yet.** `1d6!` is recognised but rejected.
 
 ## Where it came from
 
-This was the dice engine inside [OpenFray](https://openfray.app), where every roll went
-through one function so that randomness had exactly one place to live and could be checked
-in one place. That turned out to be useful on its own, so it moved out here — with
+This is the dice engine [OpenFray](https://openfray.app) rolls on. Every roll there goes
+through one function, so that randomness has exactly one place to live and can be checked
+in one place. That turned out to be useful on its own, so it lives here now, with
 everything that knew about OpenFray's subject matter left behind.
 
 OpenFray is licensed AGPL-3.0. These dice are MIT: they aren't the product, and they're

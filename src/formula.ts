@@ -8,6 +8,7 @@
  *   NdM+K / NdM-K    modifier             1d20+7, 10-1d4
  *   1d20adv/1d20dis  advantage/disadv     roll two, keep highest/lowest
  *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3
+ *   NdM!             exploding            1d6! — a top face rolls again and adds
  *   +1d4             additive sub-roll    1d8+1d4+3
  *   " fire"          trailing tag         metadata, never math
  *
@@ -29,6 +30,8 @@ export interface DiceTerm {
   keep?: { mode: 'kh' | 'kl'; n: number }
   /** adv/dis sugar, recorded so the roll result can report it. */
   advantage?: 'advantage' | 'disadvantage'
+  /** Every die landing on its top face is rolled again and added. */
+  explode?: true
 }
 
 export interface FlatTerm {
@@ -72,6 +75,8 @@ function diceTerm(
     term.advantage = suffix === 'adv' ? 'advantage' : 'disadvantage'
     term.count = 2
     term.keep = { mode: suffix === 'adv' ? 'kh' : 'kl', n: 1 }
+  } else if (suffix === '!') {
+    term.explode = true
   } else if (suffix) {
     term.keep = { mode: suffix.slice(0, 2) as 'kh' | 'kl', n: Number(suffix.slice(2)) }
   }
@@ -94,7 +99,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   if (expr === '') throw new Error(`Empty dice formula: "${source}"`)
 
   const terms: Term[] = []
-  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+)?|(\d+))/y
+  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!)?|(\d+))/y
   let pos = 0
   while (pos < expr.length) {
     re.lastIndex = pos

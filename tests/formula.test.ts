@@ -81,6 +81,32 @@ describe('parseFormula', () => {
   it('throws on malformed or unsupported input', () => {
     expect(() => parseFormula('')).toThrow()
     expect(() => parseFormula('nonsense')).toThrow()
-    expect(() => parseFormula('1d6!')).toThrow() // exploding deferred
+  })
+})
+
+describe('exploding dice', () => {
+  it('marks a term as exploding', () => {
+    expect(parseFormula('1d6!').terms[0]).toMatchObject({ sides: 6, count: 1, explode: true })
+    expect(parseFormula('3d10!').terms[0]).toMatchObject({ sides: 10, count: 3, explode: true })
+  })
+
+  it('leaves a plain term alone', () => {
+    expect('explode' in parseFormula('1d6').terms[0]).toBe(false)
+  })
+
+  it('sits alongside other terms', () => {
+    const t = parseFormula('1d6!+1d4+2').terms
+    expect(t).toHaveLength(3)
+    expect(t[0]).toMatchObject({ explode: true })
+    expect('explode' in t[1]).toBe(false)
+  })
+
+  // The suffixes are alternatives in the grammar, so exploding and keeping cannot be
+  // asked for together — which sidesteps having to define what keeping the highest of
+  // several open-ended chains would even mean.
+  it('cannot be combined with a keep rule or advantage', () => {
+    expect(() => parseFormula('4d6kh3!')).toThrow()
+    expect(() => parseFormula('1d20adv!')).toThrow()
+    expect(() => parseFormula('1d6!!')).toThrow()
   })
 })

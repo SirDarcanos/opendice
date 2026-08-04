@@ -92,6 +92,30 @@ function bonusTerms(bonuses: (number | string)[]): Term[] {
   )
 }
 
+/**
+ * How many times one die may explode before the chain is cut. A fair die reaching even
+ * ten in a row is a one-in-sixty-million event on a d6, so this never fires in play —
+ * it is here so that a loaded `RandomSource`, or a caller who found a way to ask for a
+ * one-sided die, cannot hang the process.
+ */
+const MAX_EXPLOSIONS = 100
+
+/**
+ * Roll one die, rolling again and adding while it lands on its top face. Returns every
+ * roll it made, in order, so the chain can be read back rather than taken on trust.
+ *
+ * A die with fewer than two sides is never exploded: every roll would be a top face and
+ * the chain would never end.
+ */
+function explodeDie(sides: number, rand: RandomSource): number[] {
+  const chain = [rollDie(sides, rand)]
+  if (sides < 2) return chain
+  while (chain[chain.length - 1] === sides && chain.length <= MAX_EXPLOSIONS) {
+    chain.push(rollDie(sides, rand))
+  }
+  return chain
+}
+
 /** Apply a keep rule: the n highest (kh) or lowest (kl) results; no rule keeps them all. */
 function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
   if (!keep) return results
@@ -103,7 +127,10 @@ function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
 /** Roll one dice term into its DieGroup: all results, the kept subset, the signed total. */
 function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
   const results: number[] = []
-  for (let i = 0; i < term.count; i++) results.push(rollDie(term.sides, rand))
+  for (let i = 0; i < term.count; i++) {
+    if (term.explode) results.push(...explodeDie(term.sides, rand))
+    else results.push(rollDie(term.sides, rand))
+  }
   const kept = keptDice(results, term.keep)
   const sum = kept.reduce((a, b) => a + b, 0)
   const sole = kept.length === 1 ? kept[0] : undefined

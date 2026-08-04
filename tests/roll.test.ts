@@ -191,3 +191,59 @@ describe('soleDieGroup', () => {
     expect(soleDieGroup(roll('1d20+1d6', { rand: faceSeq(11, 3) }))).toBeUndefined()
   })
 })
+
+describe('exploding dice', () => {
+  it('rolls again and adds when a die lands on its top face', () => {
+    // 6 explodes into 4: the chain stops because 4 is not a top face.
+    const r = roll('1d6!', { rand: faceSeq(6, 4) })
+    expect(r.dice[0].results).toEqual([6, 4])
+    expect(r.total).toBe(10)
+  })
+
+  it('keeps going while the top face keeps coming up', () => {
+    const r = roll('1d6!', { rand: faceSeq(6, 6, 2) })
+    expect(r.dice[0].results).toEqual([6, 6, 2])
+    expect(r.total).toBe(14)
+  })
+
+  it('does not explode a die that landed anywhere else', () => {
+    const r = roll('1d6!', { rand: faceSeq(3) })
+    expect(r.dice[0].results).toEqual([3])
+    expect(r.total).toBe(3)
+  })
+
+  it('explodes each die of a group independently', () => {
+    // Three dice: the first explodes, the other two do not.
+    const r = roll('3d6!', { rand: faceSeq(6, 4, 2, 3) })
+    expect(r.dice[0].results).toEqual([6, 4, 2, 3])
+    expect(r.total).toBe(15)
+  })
+
+  it('adds the whole chain to the total, modifiers included', () => {
+    expect(roll('1d6!+5', { rand: faceSeq(6, 2) }).total).toBe(13)
+    expect(roll('10-1d6!', { rand: faceSeq(6, 1) }).total).toBe(3)
+  })
+
+  // A one-sided die shows its top face every time, so exploding it would never end.
+  it('never explodes a die with fewer than two sides', () => {
+    const r = roll('1d1!', { rand: () => 0 })
+    expect(r.dice[0].results).toEqual([1])
+    expect(r.total).toBe(1)
+  })
+
+  // A loaded source cannot hang the process: the chain is cut, and cut generously
+  // enough that fair dice never reach it.
+  it('cuts a runaway chain rather than looping forever', () => {
+    const alwaysMax: RandomSource = () => 5 // a d6 rejects nothing at 5, giving face 6
+    const r = roll('1d6!', { rand: alwaysMax })
+    expect(r.dice[0].results.length).toBeLessThanOrEqual(101)
+    expect(r.dice[0].results.every((v) => v === 6)).toBe(true)
+  })
+
+  it('reports no natural face once a die has exploded', () => {
+    // The group kept several values, so there is no single die to read.
+    expect(roll('1d6!', { rand: faceSeq(6, 4) }).dice[0].naturalHigh).toBe(false)
+    // One roll that did not explode still reads normally.
+    expect(roll('1d6!', { rand: faceSeq(1) }).dice[0].naturalLow).toBe(true)
+  })
+})
