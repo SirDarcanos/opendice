@@ -9,6 +9,7 @@
  *   1d20adv/1d20dis  advantage/disadv     roll two, keep highest/lowest
  *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3
  *   NdM!             exploding            1d6! — a top face rolls again and adds
+ *   NdMxK            group multiplier     1d6x10 — this group's total, times K
  *   +1d4             additive sub-roll    1d8+1d4+3
  *   " fire"          trailing tag         metadata, never math
  *
@@ -55,6 +56,8 @@ export interface DiceTerm {
   advantage?: 'advantage' | 'disadvantage'
   /** Every die landing on its top face is rolled again and added. */
   explode?: true
+  /** Multiply this group's total by a whole number. Binds to the group, never the sum. */
+  multiplier?: number
 }
 
 export interface FlatTerm {
@@ -108,7 +111,7 @@ function excerpt(text: string): string {
 function largestTotal(terms: Term[]): number {
   return terms.reduce((sum, t) => {
     if (t.kind === 'flat') return sum + Math.abs(t.value)
-    return sum + t.count * t.sides * (t.explode ? MAX_EXPLOSIONS + 1 : 1)
+    return sum + t.count * t.sides * (t.explode ? MAX_EXPLOSIONS + 1 : 1) * (t.multiplier ?? 1)
   }, 0)
 }
 
@@ -138,6 +141,7 @@ function diceTerm(
   countStr: string,
   sidesStr: string,
   suffix: string | undefined,
+  multiplierStr: string | undefined,
 ): DiceTerm {
   const sides = Number(sidesStr)
   if (sides < 1 || sides > MAX_SIDES) {
@@ -161,6 +165,15 @@ function diceTerm(
       throw new Error(`A keep rule must keep at least one die, but "${suffix}" keeps none`)
     }
     term.keep = { mode: suffix.slice(0, 2) as 'kh' | 'kl', n }
+  }
+  if (multiplierStr) {
+    const times = Number(multiplierStr.slice(1))
+    if (times < 1) {
+      throw new Error(
+        `A multiplier must be at least 1, but "${multiplierStr}" would erase the dice`,
+      )
+    }
+    term.multiplier = times
   }
   return term
 }
@@ -204,7 +217,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   if (expr === '') throw new Error(`Empty dice formula: "${excerpt(source)}"`)
 
   const terms: Term[] = []
-  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!)?|(\d+))/y
+  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!)?(x\d+)?|(\d+))/y
   let pos = 0
   while (pos < expr.length) {
     re.lastIndex = pos
@@ -213,10 +226,10 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
       throw new Error(`Cannot parse "${excerpt(source)}" near "${excerpt(expr.slice(pos))}"`)
     }
     const sign: 1 | -1 = m[1] === '-' ? -1 : 1
-    if (m[5] !== undefined) {
-      terms.push({ kind: 'flat', value: sign * Number(m[5]) })
+    if (m[6] !== undefined) {
+      terms.push({ kind: 'flat', value: sign * Number(m[6]) })
     } else {
-      terms.push(diceTerm(sign, m[2], m[3], m[4]))
+      terms.push(diceTerm(sign, m[2], m[3], m[4], m[5]))
     }
     pos = re.lastIndex
   }

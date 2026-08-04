@@ -29,6 +29,11 @@ export interface DieGroup {
   /** Every die rolled, including those dropped by adv/dis/keep. */
   results: number[]
   kept: number[]
+  /**
+   * What this group's kept dice were multiplied by, 1 unless the formula said otherwise.
+   * Reported so `total` can be checked against `kept` rather than taken on trust.
+   */
+  multiplier: number
   /** This group's signed contribution to the total. */
   total: number
   /**
@@ -129,13 +134,15 @@ function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
   }
   const kept = keptDice(results, term.keep)
   const sum = kept.reduce((a, b) => a + b, 0)
+  const multiplier = term.multiplier ?? 1
   const sole = kept.length === 1 ? kept[0] : undefined
   return {
     sides: term.sides,
     sign: term.sign,
     results,
     kept,
-    total: term.sign * sum,
+    multiplier,
+    total: term.sign * sum * multiplier,
     naturalHigh: sole === term.sides,
     naturalLow: sole === 1,
   }

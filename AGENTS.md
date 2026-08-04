@@ -40,6 +40,20 @@ been re-litigated once:
 Exploding dice (`1d6!`) are in, and are the example of what _does_ belong: a way of rolling
 dice, not a rule about what a roll means.
 
+A group multiplier (`1d6x10`) is in on the same grounds — "roll a d6 and multiply by ten" is
+a procedure, not a ruling. Two things about it were argued and settled, and both will come
+back:
+
+- **Division stays out.** `1d20/3` cannot be answered without a rounding rule, and down, to
+  nearest, or in whose favour are all somebody's house rule. Picking one is the library
+  deciding what a roll means. It also gives up whole-number totals, which the exactness
+  check depends on.
+- **No `*`, and no brackets.** A multiplier binds to one dice group, the way `kh3` does, so
+  `1d6x10+5` can only be 35. General arithmetic needs precedence, and `1d20+3*2` would be
+  silently wrong for whichever half of callers meant the other reading — silence being the
+  thing this package refuses everywhere else. It would also cost the flat-sum result model
+  that `modifier`, `modifiers` and `DieGroup.sign` are all built on.
+
 ## The randomness is load-bearing
 
 `src/rng.ts` is the reason anyone would trust this package. Two rules:

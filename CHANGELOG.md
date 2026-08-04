@@ -38,6 +38,15 @@ the next release is a major version.
   markup on the page with it. What is quoted is now shortened, and anything a formula could
   not contain is replaced. Escaping what you display is still the caller's job.
 
+### Added
+
+- A group multiplier: `1d6x10` rolls a d6 and multiplies that group by ten, and `2d6x3`
+  adds both dice then triples them. It binds to one dice group the way `kh3` does, so it
+  never applies to the whole sum and there is no precedence to get wrong — `1d6x10+5` is 35
+  on a 3, not 80. It composes with keep rules, advantage and exploding, always applying last
+  to whatever the group kept. `5x2` is not a formula: this multiplies dice, not arithmetic.
+  `DieGroup` gained `multiplier`, so a total can still be checked against `kept`.
+
 ### Fixed
 
 - A total that cannot be exact is refused instead of quietly rounded. `1d6+99999999999999999999`

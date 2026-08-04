@@ -250,6 +250,49 @@ describe('a polluted Object.prototype', () => {
   })
 })
 
+// A multiplier binds to one dice group, the way a keep rule does, so there is never a
+// question of what it applies to and no precedence to get wrong.
+describe('group multiplier', () => {
+  it('marks a term with its multiplier', () => {
+    expect(parseFormula('1d6x10').terms[0]).toMatchObject({ sides: 6, count: 1, multiplier: 10 })
+  })
+
+  it('leaves a plain term alone', () => {
+    expect('multiplier' in parseFormula('1d6').terms[0]).toBe(false)
+  })
+
+  // Unlike `!` and `kh`, these compose: the multiplier applies to whatever the group kept.
+  it('sits alongside a keep rule, advantage or an explosion', () => {
+    expect(parseFormula('4d6kh3x2').terms[0]).toMatchObject({
+      keep: { mode: 'kh', n: 3 },
+      multiplier: 2,
+    })
+    expect(parseFormula('1d20advx2').terms[0]).toMatchObject({
+      advantage: 'advantage',
+      multiplier: 2,
+    })
+    expect(parseFormula('1d6!x2').terms[0]).toMatchObject({ explode: true, multiplier: 2 })
+  })
+
+  it('refuses a multiplier that would erase the dice', () => {
+    expect(() => parseFormula('1d6x0')).toThrow(/at least 1/)
+  })
+
+  it('allows a multiplier of 1, which changes nothing', () => {
+    expect(parseFormula('1d6x1').terms[0]).toMatchObject({ multiplier: 1 })
+  })
+
+  // It multiplies dice, not arithmetic — there is no `5x2` and so no precedence question.
+  it('cannot be put on a plain number', () => {
+    expect(() => parseFormula('5x2')).toThrow(/Cannot parse/)
+    expect(() => parseFormula('1d6+5x2')).toThrow(/Cannot parse/)
+  })
+
+  it('counts towards the largest total a roll may reach', () => {
+    expect(() => parseFormula(`1d6x${Number.MAX_SAFE_INTEGER}`)).toThrow(/exact/)
+  })
+})
+
 describe('exploding dice', () => {
   it('marks a term as exploding', () => {
     expect(parseFormula('1d6!').terms[0]).toMatchObject({ sides: 6, count: 1, explode: true })

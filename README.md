@@ -66,17 +66,18 @@ roll('1d78') //      unusual numbers of sides are fine, not just the usual ones
 
 ### The formula language
 
-| You write   | It means                                                     |
-| ----------- | ------------------------------------------------------------ |
-| `2d6`       | Roll two six-sided dice and add them up.                     |
-| `1d20+7`    | Roll a d20 and add 7. Use `-7` to subtract.                  |
-| `1d8+1d4+3` | Mix as many dice and numbers as you like.                    |
-| `4d6kh3`    | Roll four d6, **k**eep the **h**ighest **3**.                |
-| `4d6kl3`    | Same, but keep the **l**owest 3.                             |
-| `1d20adv`   | Roll two d20 and keep the higher one. ("advantage")          |
-| `1d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")        |
-| `1d6!`      | Exploding — see [below](#exploding-dice).                    |
-| `2d10 fire` | A label on the end. See [Labels](#labels) — it's never math. |
+| You write   | It means                                                                  |
+| ----------- | ------------------------------------------------------------------------- |
+| `2d6`       | Roll two six-sided dice and add them up.                                  |
+| `1d20+7`    | Roll a d20 and add 7. Use `-7` to subtract.                               |
+| `1d8+1d4+3` | Mix as many dice and numbers as you like.                                 |
+| `4d6kh3`    | Roll four d6, **k**eep the **h**ighest **3**.                             |
+| `4d6kl3`    | Same, but keep the **l**owest 3.                                          |
+| `1d20adv`   | Roll two d20 and keep the higher one. ("advantage")                       |
+| `1d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")                     |
+| `1d6!`      | Exploding — see [below](#exploding-dice).                                 |
+| `1d6x10`    | Roll a d6, multiply that group by 10 — see [below](#multiplying-a-group). |
+| `2d10 fire` | A label on the end. See [Labels](#labels) — it's never math.              |
 
 Spaces are ignored, and capital letters are fine: `2D6 + 3` works.
 
@@ -105,6 +106,8 @@ r.dice[0]
 //   results: [4, 17],   every die that was rolled
 //   kept: [17],         the ones that counted toward the total
 //   sign: 1,            1 for added, -1 for subtracted (as in '10-1d4')
+//   multiplier: 1,      what the kept dice were multiplied by
+
 //   total: 17,          what this group contributed
 //   naturalHigh: false, the kept die showed the highest face — see below
 //   naturalLow: false,  the kept die showed a 1
@@ -188,6 +191,47 @@ Two things it will not do:
   reaching even ten in a row is a one-in-sixty-million event, so this never fires in
   practice — it's there so a deliberately loaded random source can't hang your program. A
   one-sided die never explodes at all, since every roll would be a top face.
+
+## Multiplying a group
+
+Put `x` and a whole number after a die and that group's total is multiplied by it:
+
+```ts
+roll('1d6x10') //  a d6, times ten: 10, 20, 30, 40, 50 or 60
+roll('2d6x3') //   both dice added up, then tripled
+```
+
+It multiplies **that group of dice**, never the whole sum. So the `+5` here is added
+afterwards, untouched:
+
+```ts
+roll('1d6x10+5') // rolled 3 -> 3 x 10 + 5 = 35
+```
+
+That is the whole of the rule, and it is why there is no `*` and no brackets: a multiplier
+belongs to one group the way `kh3` does, so there is never a question of what it applies to.
+`5x2` is not a formula — this multiplies dice, not arithmetic.
+
+It combines with everything else, and always applies last, to whatever the group kept:
+
+```ts
+roll('4d6kh3x2') //  keep the best three, then double them
+roll('1d20advx2') // advantage, then double the die that won
+roll('1d6!x2') //    let it explode, then double the whole chain
+```
+
+`multiplier` is reported on the group, so a total can be checked rather than trusted:
+
+```ts
+const g = roll('2d6x3', { rand: faces(2, 4) }).dice[0]
+g.kept //       [2, 4]
+g.multiplier // 3
+g.total //      18
+```
+
+There is no division. Dividing needs a rounding rule — down, to nearest, in whose favour —
+and picking one would be this library deciding what your roll means. `Math.floor(total / 3)`
+is yours to write and says exactly what you chose.
 
 ## Labels
 

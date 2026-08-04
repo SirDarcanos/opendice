@@ -248,6 +248,52 @@ describe('exploding dice', () => {
   })
 })
 
+describe('group multiplier', () => {
+  it('multiplies what the group kept', () => {
+    const g = roll('1d6x10', { rand: faceSeq(3) }).dice[0]
+    expect(g.kept).toEqual([3])
+    expect(g.multiplier).toBe(10)
+    expect(g.total).toBe(30)
+  })
+
+  it('multiplies the group total, never the flat modifiers', () => {
+    const r = roll('1d6x10+5', { rand: faceSeq(3) })
+    expect(r.total).toBe(35)
+    expect(r.modifiers).toEqual([5])
+  })
+
+  it('reports 1 when the formula asked for no multiplier', () => {
+    expect(roll('2d6', { rand: faceSeq(3, 5) }).dice[0].multiplier).toBe(1)
+  })
+
+  it('applies per group, so each keeps its own', () => {
+    const r = roll('1d6x10+1d4x100', { rand: faceSeq(3, 2) })
+    expect(r.dice.map((g) => g.total)).toEqual([30, 200])
+    expect(r.total).toBe(230)
+  })
+
+  it('multiplies a subtracted group too', () => {
+    expect(roll('-1d6x10', { rand: faceSeq(3) }).total).toBe(-30)
+  })
+
+  it('applies after a keep rule, advantage and an explosion', () => {
+    expect(roll('4d6kh3x2', { rand: faceSeq(1, 5, 3, 6) }).total).toBe(28)
+    expect(roll('1d20advx2', { rand: faceSeq(4, 18) }).total).toBe(36)
+    expect(roll('1d6!x2', { rand: faceSeq(6, 2) }).total).toBe(16)
+  })
+
+  // The multiplier changes the total, not what the die showed.
+  it('leaves the natural face reading the die itself', () => {
+    const g = roll('1d20x2', { rand: faceSeq(20) }).dice[0]
+    expect(g.naturalHigh).toBe(true)
+    expect(g.total).toBe(40)
+  })
+
+  it('leaves keptFlags lined up with results', () => {
+    expect(keptFlags(roll('1d20advx2', { rand: faceSeq(4, 18) }).dice[0])).toEqual([false, true])
+  })
+})
+
 describe('limits', () => {
   it('counts bonuses towards the dice a roll may use', () => {
     expect(() => roll('600d6', { bonuses: ['600d6'] })).toThrow(/at most/)
