@@ -99,10 +99,8 @@ on `kind: 'attack'` — a 20 on a damage die is not a crit.
 
 ## The randomness
 
-```ts
-import { rollDie, cryptoRandom } from '@openfray/dice'
-rollDie(20) // one fair d20
-```
+**You get all of this from `roll()` without asking.** There is nothing to configure and no
+generator to pass in: `roll('1d20')` already goes through the CSPRNG below.
 
 - **`crypto.getRandomValues`, not `Math.random`**, whose quality the specification allows
   to vary between engines.
@@ -114,8 +112,19 @@ rollDie(20) // one fair d20
   Suppressing repeats is more detectably rigged across a campaign than honest clumping is,
   and it would make the log a lie. Real dice clump; so do these.
 
-Pass your own `RandomSource` — any `() => number` yielding unsigned 32-bit integers — to
-make tests deterministic:
+The two pieces are exported so you can reach past `roll()` when you want to — roll a
+single die without the formula layer, or point the generator somewhere else:
+
+```ts
+import { rollDie, cryptoRandom } from '@openfray/dice'
+
+rollDie(20) //                    one fair d20, same CSPRNG, no formula to parse
+rollDie(6, myOwnSource) //        or your own RandomSource
+cryptoRandom() //                 the raw uint32 draw, if you are auditing it
+```
+
+A `RandomSource` is any `() => number` yielding unsigned 32-bit integers, which is what
+makes tests deterministic:
 
 ```ts
 roll('1d20', { rand: () => 0 }) // → 1, every time
