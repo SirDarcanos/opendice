@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT
+# Typecheck, test and build on every push to main and every pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# No GitHub API calls are made, so no token permissions are needed.
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx prettier --check "**/*.{ts,json,md}" --ignore-path .gitignore

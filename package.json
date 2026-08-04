@@ -1,6 +1,6 @@
 {
   "name": "@openfray/dice",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Honest dice for d20 systems: a formula parser and one roll() over a CSPRNG with modulo-bias rejection.",
   "license": "MIT",
   "author": "OpenFray contributors",
@@ -39,11 +39,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OpenFrayApp/openfray-dice.git"
+    "url": "git+https://github.com/OpenFrayApp/dice.git"
   },
-  "homepage": "https://github.com/OpenFrayApp/openfray-dice#readme",
+  "homepage": "https://github.com/OpenFrayApp/dice#readme",
   "bugs": {
-    "url": "https://github.com/OpenFrayApp/openfray-dice/issues"
+    "url": "https://github.com/OpenFrayApp/dice/issues"
   },
   "publishConfig": {
     "access": "public"

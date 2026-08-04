@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: MIT
+# Publishes to npm when a GitHub release is published.
+#
+# Releasing:
+#   1. Bump "version" in package.json and merge that to main.
+#   2. Draft a release on GitHub tagged v<version> and publish it.
+#
+# The job refuses to publish if the tag and package.json disagree, so a release
+# tagged v1.2.0 can never ship a tarball that says 1.1.0.
+#
+# Needs one repository secret, NPM_TOKEN — an npm automation token with publish
+# rights on the @openfray scope.
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Lets npm attach provenance: a signed, public record of which commit and which
+      # workflow built the tarball, so nobody has to take our word for what is in it.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Check the tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Release is tagged $GITHUB_REF_NAME but package.json says $pkg."
+            exit 1
+          fi
+          echo "Publishing $pkg"
+
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
