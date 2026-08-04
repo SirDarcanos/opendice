@@ -3,7 +3,7 @@
 
 /**
  * The randomness core. The goal is not "true" randomness but **unbiased, uniform, and
- * unpredictable-to-a-human**, with enough transparency that players trust it. Trust
+ * unpredictable-to-a-human**, with enough transparency that anyone can check it. Trust
  * comes from a visible roll log, never from tampering — so there is deliberately no
  * "anti-streak" or "feels-fair" logic here. Real dice clump; so do these.
  */

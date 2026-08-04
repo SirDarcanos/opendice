@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 OpenFray contributors
 
+/**
+ * One chokepoint for every roll: parse a formula, apply the advantage and bonuses the
+ * caller has already resolved, roll each term through the CSPRNG, and return enough
+ * detail to show the working rather than just the answer.
+ *
+ * What it never does is work out *whether* a roll should have advantage, or what an
+ * extra die is for. Those answers arrive through `RollContext`, which is what keeps the
+ * randomness auditable on its own.
+ */
+
 import { cryptoRandom, rollDie, type RandomSource } from './rng.ts'
 import {
   parseFormula,
@@ -10,30 +20,17 @@ import {
   type Term,
 } from './formula.ts'
 
-/**
- * One chokepoint for every roll. Parse a formula, apply advantage and any extra
- * bonuses the caller has resolved, roll each term through the CSPRNG, and return
- * enough detail to render the result and to show your work.
- *
- * Deliberately not effect-aware: whatever decides that a roll has advantage, or that
- * Bless adds a d4, lives in the caller and hands the answer in through `RollContext`.
- * That keeps the randomness auditable on its own.
- */
-
 export interface DieGroup {
   sides: number
   sign: 1 | -1
   /** Every die rolled, including those dropped by adv/dis/keep. */
   results: number[]
-  /** The dice kept toward the total. */
   kept: number[]
   /** This group's signed contribution to the total. */
   total: number
   /**
-   * The one die this group kept showed its highest face — `sides` on a `d{sides}`.
-   * A fact about the die and nothing more: whether that matters is yours to decide.
-   * False unless the group kept exactly one die, since a 20 among four dice is not
-   * the result of anything on its own.
+   * The one die this group kept showed its highest face. False unless exactly one die
+   * was kept, since a top face among several is not the result of anything on its own.
    */
   naturalHigh: boolean
   /** The one die this group kept came up 1, on the same terms. */
@@ -45,11 +42,7 @@ export interface RollResult {
   dice: DieGroup[]
   /** Sum of flat numeric modifiers (dice are not counted here). */
   modifier: number
-  /**
-   * Each flat modifier on its own, in the order it was added — the creature's own
-   * bonus first, then whatever the effects contributed. The breakdown reads them out
-   * rather than the sum, so `+1 -6` says where a −5 came from.
-   */
+  /** Each flat modifier separately, in order, so `+1 -6` can be shown rather than `-5`. */
   modifiers: number[]
   total: number
   advantageState: AdvantageState
@@ -60,7 +53,7 @@ export interface RollResult {
 export interface RollContext {
   /** Force advantage/disadvantage on the first plain d20 term. Net it yourself. */
   advantage?: AdvantageState
-  /** Extra additive terms folded in, e.g. Bless `'1d4'`; numbers or formula fragments. */
+  /** Extra terms to add: plain numbers, or formula fragments like `'1d4'`. */
   bonuses?: (number | string)[]
   /** Injectable randomness for tests; defaults to the CSPRNG. */
   rand?: RandomSource
@@ -92,20 +85,12 @@ function bonusTerms(bonuses: (number | string)[]): Term[] {
   )
 }
 
-/**
- * How many times one die may explode before the chain is cut. A fair die reaching even
- * ten in a row is a one-in-sixty-million event on a d6, so this never fires in play —
- * it is here so that a loaded `RandomSource`, or a caller who found a way to ask for a
- * one-sided die, cannot hang the process.
- */
+/** Guards against a loaded `RandomSource`; a fair die never comes near it. */
 const MAX_EXPLOSIONS = 100
 
 /**
- * Roll one die, rolling again and adding while it lands on its top face. Returns every
- * roll it made, in order, so the chain can be read back rather than taken on trust.
- *
- * A die with fewer than two sides is never exploded: every roll would be a top face and
- * the chain would never end.
+ * Roll one die, rolling again while it lands on its top face; returns the whole chain.
+ * A die of fewer than two sides never explodes — every roll would be a top face.
  */
 function explodeDie(sides: number, rand: RandomSource): number[] {
   const chain = [rollDie(sides, rand)]

@@ -12,11 +12,10 @@
  *   +1d4             additive sub-roll    1d8+1d4+3
  *   " fire"          trailing tag         metadata, never math
  *
- * The trailing tag is whatever the caller says it is. A damage type in one game is a
- * suit or an element in another, so the parser knows a formula *can* carry one and
- * nothing about which are real: pass the set you recognise as `tags`. Without it, a
- * trailing word is a parse error like any other stray token, so a typo is never
- * silently swallowed as a tag.
+ * The trailing tag is whatever the caller says it is — a category here, a colour there —
+ * so the parser knows a formula *can* carry one and nothing about which are real: pass
+ * the set you recognise as `tags`. Without it a trailing word is a parse error like any
+ * other stray token, so a typo is never silently swallowed as a tag.
  */
 
 export type AdvantageState = 'normal' | 'advantage' | 'disadvantage'
