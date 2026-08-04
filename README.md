@@ -1,5 +1,7 @@
 # @openfray/dice
 
+[![NPM](https://nodei.co/npm/@openfray/dice.svg?style=shields&data=n,v,u,d&color=blue)](https://www.npmjs.com/package/@openfray/dice)
+
 Roll dice in JavaScript or TypeScript. You write `2d6+3`, you get a number back — plus
 every die that was rolled, so you can show your work.
 
