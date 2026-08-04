@@ -24,17 +24,32 @@ describe('roll', () => {
     expect(r.advantageState).toBe('normal')
   })
 
-  it('flags a natural 20 as a crit', () => {
-    const r = roll('1d20+7', { kind: 'attack', rand: faceSeq(20) })
+  it('reports a natural 20 on the kept d20', () => {
+    const r = roll('1d20+7', { rand: faceSeq(20) })
     expect(r.total).toBe(27)
-    expect(r.crit).toBe(true)
-    expect(r.fumble).toBe(false)
+    expect(r.naturalHigh).toBe(true)
+    expect(r.naturalLow).toBe(false)
   })
 
-  it('flags a natural 1 as a fumble', () => {
-    const r = roll('1d20+7', { kind: 'attack', rand: faceSeq(1) })
-    expect(r.fumble).toBe(true)
-    expect(r.crit).toBe(false)
+  it('reports a natural 1 on the kept d20', () => {
+    const r = roll('1d20+7', { rand: faceSeq(1) })
+    expect(r.naturalLow).toBe(true)
+    expect(r.naturalHigh).toBe(false)
+  })
+
+  // It is a fact about the dice, not a ruling, so nothing has to be declared to get
+  // it — there is no roll "kind" to opt in with, and a save reports it as readily as
+  // an attack. What it means is the caller's business.
+  it('reports it whatever the roll was for, with nothing declared', () => {
+    expect(roll('1d20', { rand: faceSeq(20) }).naturalHigh).toBe(true)
+    expect(roll('1d20+3', { rand: faceSeq(1) }).naturalLow).toBe(true)
+  })
+
+  // Advantage keeps one of two, so the kept die still counts.
+  it('reads the kept die, not the dropped one', () => {
+    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).naturalHigh).toBe(true)
+    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).naturalLow).toBe(false)
+    expect(roll('1d20dis', { rand: faceSeq(1, 20) }).naturalLow).toBe(true)
   })
 
   it('keeps the highest on advantage', () => {
@@ -58,29 +73,18 @@ describe('roll', () => {
     expect(r.total).toBe(14)
   })
 
-  it('doubles dice but not modifiers on a crit (RAW, crit: true)', () => {
-    const r = roll('2d10+8', { crit: true, rand: faceSeq(10, 10, 1, 1) })
-    expect(r.dice[0].results).toHaveLength(4)
-    expect(r.total).toBe(30) // (10+10+1+1) + 8
-  })
-
-  it('supports the double-total crit rule', () => {
-    const r = roll('2d6+5', { crit: 'double-total', rand: faceSeq(3, 4) })
-    expect(r.dice[0].results).toHaveLength(2) // rolled once
-    expect(r.dice[0].total).toBe(14) // (3+4) doubled
-    expect(r.total).toBe(19) // dice doubled, modifier untouched
-  })
-
-  it('supports the max-plus-roll crit rule', () => {
-    const r = roll('2d6', { crit: 'max-plus-roll', rand: faceSeq(3, 4) })
-    expect(r.dice[0].results).toHaveLength(2)
-    expect(r.total).toBe(19) // 2*6 (max) + (3+4)
-  })
-
-  it('does not apply crit rules to attack/keep dice', () => {
-    const r = roll('1d20adv', { crit: 'double-dice', rand: faceSeq(4, 18) })
-    expect(r.dice[0].results).toHaveLength(2) // advantage's two dice, not doubled
-    expect(r.total).toBe(18)
+  // Doubling damage on a critical hit is a rule, not a dice operation, so it lives in
+  // the caller. Each of the three common ways to do it is reachable from what roll()
+  // already returns, which is why the library needs no opinion about them.
+  it('leaves crit damage to the caller, who has everything they need', () => {
+    // Double the dice: rewrite the formula.
+    expect(roll('4d10+8', { rand: faceSeq(10, 10, 1, 1) }).total).toBe(30)
+    // Double the dice total: arithmetic on the result.
+    const r = roll('2d6+5', { rand: faceSeq(3, 4) })
+    expect(r.dice[0].total * 2 + r.modifier).toBe(19)
+    // Maximise then roll: the maximum is count × sides, which the group reports.
+    const g = roll('2d6', { rand: faceSeq(3, 4) }).dice[0]
+    expect(g.results.length * g.sides + g.total).toBe(19)
   })
 
   it('carries a trailing tag through to the result', () => {
@@ -101,9 +105,10 @@ describe('roll', () => {
     expect(r.total).toBe(8)
   })
 
-  it('does not flag crit/fumble on multi-die or non-d20 rolls', () => {
-    expect(roll('2d20', { rand: faceSeq(20, 20) }).crit).toBe(false)
-    expect(roll('1d6', { rand: faceSeq(1) }).fumble).toBe(false)
+  it('reports no natural extreme on multi-die or non-d20 rolls', () => {
+    expect(roll('2d20', { rand: faceSeq(20, 20) }).naturalHigh).toBe(false)
+    expect(roll('1d6', { rand: faceSeq(1) }).naturalLow).toBe(false)
+    expect(roll('1d78', { rand: faceSeq(78) }).naturalHigh).toBe(false)
   })
 
   it('applies advantage from context to a plain d20', () => {

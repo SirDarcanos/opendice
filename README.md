@@ -1,7 +1,8 @@
 # @openfray/dice
 
-**Honest dice for d20 systems.** A formula parser, a CSPRNG with modulo-bias rejection,
-and one `roll()` that reports every die it kept and every die it dropped.
+**Honest dice.** A formula parser, a CSPRNG with modulo-bias rejection, and one `roll()`
+that reports every die it kept and every die it dropped — and decides nothing about what
+any of it means.
 
 MIT · zero dependencies · works in the browser and in Node 20+
 
@@ -25,8 +26,8 @@ the interesting part is as much what it refuses to do as what it does.
 ```ts
 import { roll } from '@openfray/dice'
 
-roll('1d20+7', { kind: 'attack' })
-// { total: 23, dice: [{ sides: 20, results: [16], kept: [16], … }], modifier: 7, crit: false, … }
+roll('1d20+7')
+// { total: 23, dice: [{ sides: 20, results: [16], kept: [16], … }], modifier: 7, … }
 
 roll('4d6kh3') //            roll four, keep the best three
 roll('1d20adv+5') //         advantage: roll two, keep the higher, both reported
@@ -73,29 +74,34 @@ formula _can_ carry a tag and nothing about which are real. Passing an unrecogni
 is an error rather than a silent tag, because at the end of a formula a stray word is far
 more often a typo than metadata — and a typo you can see beats one that travels.
 
-### Advantage, bonuses, and crits
+### Advantage and bonuses
 
 The library does not know what Bless is. Whatever decides that a roll has advantage, or
 that something adds a `1d4`, lives in your code and hands the answer in:
 
 ```ts
 roll('1d20+7', {
-  kind: 'attack',
   advantage: 'advantage', // net it yourself; one adv + one disadv is your call
   bonuses: [2, '1d4'], // numbers or formula fragments
 })
 ```
 
-Crit rules apply to damage dice only, never to an attack roll or a flat modifier:
+### Facts, not rulings
+
+`naturalHigh` and `naturalLow` say the kept d20 showed its highest or lowest face. That is
+all they say. Whether it means a critical hit, an automatic success, a fumble table, or
+nothing at all is your game's business, so nothing has to be declared to get them and a
+save reports them as readily as an attack. They are false unless exactly one d20 was kept
+— a 20 on one of four dice isn't a natural anything.
+
+Critical damage is a rule, so it isn't here. Everything the three common ways need is
+already on the result:
 
 ```ts
-roll('2d6+4', { kind: 'damage', crit: 'double-dice' }) //    roll twice the dice
-roll('2d6+4', { kind: 'damage', crit: 'max-plus-roll' }) //  max the dice, then roll
-roll('2d6+4', { kind: 'damage', crit: 'double-total' }) //   roll once, double the dice total
+roll('4d10+8') //                          double the dice: rewrite the formula
+r.dice[0].total * 2 + r.modifier //        double the dice total
+g.results.length * g.sides + g.total //    maximise, then roll
 ```
-
-`crit` and `fumble` on the result flag a natural 20 or 1, and only for a single kept d20
-on `kind: 'attack'` — a 20 on a damage die is not a crit.
 
 ## The randomness
 
@@ -132,7 +138,9 @@ roll('1d20', { rand: () => 0 }) // → 1, every time
 
 ## What it deliberately isn't
 
-- **Not a rules engine.** No conditions, no characters, no spells.
+- **Not a rules engine.** No conditions, no characters, no spells, no critical-hit rules,
+  and no notion of what a roll is _for_ — there is no `kind`, because a label the library
+  never reads would only look like it did something.
 - **Not effect-aware.** It applies the advantage and bonuses you hand it and works none of
   them out for itself, which is what keeps the randomness auditable on its own.
 - **No exploding dice yet.** `1d6!` is in the grammar and parses as an error.

@@ -22,9 +22,7 @@ export {
   d20Group,
   keptFlags,
   roll,
-  type CritRule,
   type DieGroup,
   type RollContext,
-  type RollKind,
   type RollResult,
 } from './roll.ts'

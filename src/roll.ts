@@ -20,18 +20,6 @@ import {
  * That keeps the randomness auditable on its own.
  */
 
-export type RollKind = 'attack' | 'save' | 'check' | 'damage' | 'raw'
-
-/**
- * How a critical hit inflates damage dice. Only plain damage dice are affected
- * (never attack rolls, never flat modifiers):
- * - `none`          — not a crit
- * - `double-dice`   — RAW: roll twice as many dice
- * - `double-total`  — roll once, then double the dice total
- * - `max-plus-roll` — add the dice maximum, then roll once (a common house rule)
- */
-export type CritRule = 'none' | 'double-dice' | 'double-total' | 'max-plus-roll'
-
 export interface DieGroup {
   sides: number
   sign: 1 | -1
@@ -39,13 +27,12 @@ export interface DieGroup {
   results: number[]
   /** The dice kept toward the total. */
   kept: number[]
-  /** This group's signed contribution to the total (after any crit rule). */
+  /** This group's signed contribution to the total. */
   total: number
 }
 
 export interface RollResult {
   formula: string
-  kind: RollKind
   dice: DieGroup[]
   /** Sum of flat numeric modifiers (dice are not counted here). */
   modifier: number
@@ -56,22 +43,21 @@ export interface RollResult {
    */
   modifiers: number[]
   total: number
-  /** Natural 20 on a single d20. */
-  crit: boolean
-  /** Natural 1 on a single d20. */
-  fumble: boolean
+  /**
+   * The kept d20 showed its highest face. A fact about the dice, not a ruling: whether
+   * it means a critical hit, an automatic success, or nothing at all is the caller's
+   * to decide. Only meaningful for a single kept d20, and false otherwise.
+   */
+  naturalHigh: boolean
+  /** The kept d20 showed a 1, on the same terms. */
+  naturalLow: boolean
   advantageState: AdvantageState
   /** The formula's trailing tag, when it carried one the caller recognises. */
   tag?: string
 }
 
 export interface RollContext {
-  rollerId?: string
-  targetId?: string
-  kind?: RollKind
-  /** Crit handling for damage dice. `true` is shorthand for RAW `double-dice`. */
-  crit?: boolean | CritRule
-  /** Force advantage/disadvantage on the d20 (the effect layer resolves the net). */
+  /** Force advantage/disadvantage on the first plain d20 term. Net it yourself. */
   advantage?: AdvantageState
   /** Extra additive terms folded in, e.g. Bless `'1d4'`; numbers or formula fragments. */
   bonuses?: (number | string)[]
@@ -105,13 +91,6 @@ function bonusTerms(bonuses: (number | string)[]): Term[] {
   )
 }
 
-/** Resolve the crit option to a rule: `true` → RAW double-dice, absent/false → none. */
-function normalizeCrit(crit: boolean | CritRule | undefined): CritRule {
-  if (crit === true) return 'double-dice'
-  if (!crit) return 'none'
-  return crit
-}
-
 /** Apply a keep rule: the n highest (kh) or lowest (kl) results; no rule keeps them all. */
 function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
   if (!keep) return results
@@ -121,27 +100,12 @@ function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
 }
 
 /** Roll one dice term into its DieGroup: all results, the kept subset, the signed total. */
-function rollGroup(term: DiceTerm, critRule: CritRule, rand: RandomSource): DieGroup {
-  // Crit rules only apply to plain damage dice — never attack/keep/adv terms.
-  const rule = term.keep || term.advantage ? 'none' : critRule
-  const count = term.count * (rule === 'double-dice' ? 2 : 1)
+function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
   const results: number[] = []
-  for (let i = 0; i < count; i++) results.push(rollDie(term.sides, rand))
+  for (let i = 0; i < term.count; i++) results.push(rollDie(term.sides, rand))
   const kept = keptDice(results, term.keep)
   const sum = kept.reduce((a, b) => a + b, 0)
-
-  let contribution: number
-  switch (rule) {
-    case 'double-total':
-      contribution = sum * 2
-      break
-    case 'max-plus-roll':
-      contribution = term.count * term.sides + sum
-      break
-    default: // 'none' and 'double-dice' (the extra dice are already rolled)
-      contribution = sum
-  }
-  return { sides: term.sides, sign: term.sign, results, kept, total: term.sign * contribution }
+  return { sides: term.sides, sign: term.sign, results, kept, total: term.sign * sum }
 }
 
 /**
@@ -165,20 +129,19 @@ export function d20Group(result: RollResult): DieGroup | undefined {
   return d20s.length === 1 ? d20s[0] : undefined
 }
 
-/** Crit/fumble are only meaningful for a single kept d20. */
-function critFumble(dice: DieGroup[]): { crit: boolean; fumble: boolean } {
+/** Natural extremes are only meaningful for a single kept d20. */
+function naturals(dice: DieGroup[]): { naturalHigh: boolean; naturalLow: boolean } {
   const d20s = dice.filter((g) => g.sides === 20)
   if (d20s.length !== 1 || d20s[0].kept.length !== 1) {
-    return { crit: false, fumble: false }
+    return { naturalHigh: false, naturalLow: false }
   }
   const value = d20s[0].kept[0]
-  return { crit: value === 20, fumble: value === 1 }
+  return { naturalHigh: value === 20, naturalLow: value === 1 }
 }
 
-/** Parse, apply adv/dis and bonuses, roll, and flag a natural 20 or 1 on an attack. */
+/** Parse, apply adv/dis and bonuses, roll, and report what the dice did. */
 export function roll(formula: string, ctx: RollContext = {}): RollResult {
   const rand = ctx.rand ?? cryptoRandom
-  const critRule = normalizeCrit(ctx.crit)
   const parsed = parseFormula(formula, { tags: ctx.tags })
   let terms = parsed.terms
   if (ctx.advantage && ctx.advantage !== 'normal') {
@@ -202,23 +165,18 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
       continue
     }
     if (term.advantage) advantageState = term.advantage
-    const group = rollGroup(term, critRule, rand)
+    const group = rollGroup(term, rand)
     total += group.total
     dice.push(group)
   }
 
-  // A natural 20 / 1 only crits or fumbles on an attack roll — saves and checks
-  // (and damage) don't.
-  const { crit, fumble } = ctx.kind === 'attack' ? critFumble(dice) : { crit: false, fumble: false }
   return {
     formula: parsed.source,
-    kind: ctx.kind ?? 'raw',
     dice,
     modifier,
     modifiers,
     total,
-    crit,
-    fumble,
+    ...naturals(dice),
     advantageState,
     ...(parsed.tag !== undefined ? { tag: parsed.tag } : {}),
   }
