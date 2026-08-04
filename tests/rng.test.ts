@@ -33,6 +33,25 @@ describe('rollDie', () => {
     expect(() => rollDie(2.5)).toThrow()
   })
 
+  // Above 2^32 the ceiling rounds down to zero, so every draw sits at or above it. The
+  // loop would then redraw forever: a hang, not a wrong answer.
+  it('throws on more sides than one draw can address', () => {
+    expect(() => rollDie(2 ** 32 + 1, rawSeq(0))).toThrow()
+    expect(() => rollDie(Number.MAX_SAFE_INTEGER, rawSeq(0))).toThrow()
+  })
+
+  it('still rolls the largest die one draw can address', () => {
+    expect(rollDie(2 ** 32, rawSeq(0))).toBe(1)
+  })
+
+  // A source stuck in the rejection zone used to spin forever. Every die accepts more
+  // than half of all draws, so giving up says the source is broken, never that a fair
+  // one was unlucky.
+  it('gives up on a source that rejects every draw instead of hanging', () => {
+    const ceiling = Math.floor(2 ** 32 / 20) * 20
+    expect(() => rollDie(20, () => ceiling)).toThrow(/rejected/)
+  })
+
   it('stays within range across many real CSPRNG draws', () => {
     for (let i = 0; i < 2000; i++) {
       const v = rollDie(20)
