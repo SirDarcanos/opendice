@@ -32,6 +32,18 @@ the next release is a major version.
   row the caller writes the roll to, which is the one artifact this package exists to make
   trustworthy. Twenty-five code points could do it, U+212A among them: it lowercases to a
   plain `k`, so `4d6Kh3` parsed and left the sign in `formula`.
+- `crypto.getRandomValues` is taken once as the module loads rather than looked up on every
+  call. Anything else sharing the page — an analytics tag, a dependency further down the
+  bundle — could replace it and own every roll from then on, reported by a roll log that
+  still looked honest. This closes the window after load; nothing in JavaScript can close
+  the one before it.
+- `rollDie` names the type of a non-number instead of repeating it. TypeScript says
+  `number`, but a JavaScript caller is not bound by that, and the message is as likely to be
+  shown to someone as any other. `parseFormula` refuses non-text input the same way, rather
+  than failing with `input.trim is not a function`.
+- `bonuses` is capped at 100 entries. Every entry is parsed before the dice limit can refuse
+  the roll, so a million of them burned about 2.4 seconds whatever they added up to.
+- The publish workflow pins npm instead of installing `@latest` beside the OIDC credential.
 - An error no longer repeats the input word for word. `roll('<img src=x onerror=…>')` threw
   an `Error` whose message carried that markup verbatim and twice — and a caller putting the
   message on a page, which is what an error about typed input is for, would have put the

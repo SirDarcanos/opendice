@@ -107,7 +107,6 @@ r.dice[0]
 //   kept: [17],         the ones that counted toward the total
 //   sign: 1,            1 for added, -1 for subtracted (as in '10-1d4')
 //   multiplier: 1,      what the kept dice were multiplied by
-
 //   total: 17,          what this group contributed
 //   naturalHigh: false, the kept die showed the highest face — see below
 //   naturalLow: false,  the kept die showed a 1
@@ -154,7 +153,8 @@ This is for extras your code works out while running, so you don't have to build
 strings by hand.
 
 A plain number has to be a whole one, the same as a `+3` written into a formula. A fraction,
-`NaN` or an infinity is refused rather than folded into the total.
+`NaN` or an infinity is refused rather than folded into the total, and a roll may carry
+at most 100 bonuses.
 
 ## Exploding dice
 
@@ -305,6 +305,7 @@ for. Each of these is refused with an error rather than attempted:
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **1,000 dice** in one roll           | Every die is rolled separately, so `99999999d6` is a way of asking a program to stop responding rather than a roll anyone wants.     |
 | **4,294,967,296 sides** on a die     | That is how many faces one random number covers. More would mean drawing twice for one die, and the fairness rests on one draw each. |
+| **100 bonuses** on one roll          | Each is read as a formula before the dice can be counted, so the list is bounded too.                                                |
 | **1,000 characters** in a formula    | Longer than anyone types.                                                                                                            |
 | **100 explosions** on one die        | See [exploding dice](#exploding-dice).                                                                                               |
 | **A total of 9,007,199,254,740,991** | Above that, JavaScript stops counting in exact whole numbers. A total that cannot be exact is refused rather than quietly rounded.   |
