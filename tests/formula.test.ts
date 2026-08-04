@@ -123,13 +123,24 @@ describe('limits on what a formula may ask for', () => {
   it('rejects a total too large to stay exact', () => {
     expect(() => parseFormula('1d6+99999999999999999999')).toThrow(/exact/)
     expect(() => parseFormula('1d6+' + '9'.repeat(400))).toThrow(/exact/)
-    expect(() => parseFormula('9007199254740991+9007199254740991')).toThrow(/exact/)
+    expect(() => parseFormula('1d6+9007199254740991+9007199254740991')).toThrow(/exact/)
   })
 
   it('allows the largest total that is still exact', () => {
-    expect(parseFormula(`${Number.MAX_SAFE_INTEGER}`).terms[0]).toMatchObject({
-      value: Number.MAX_SAFE_INTEGER,
+    expect(parseFormula(`1d1+${Number.MAX_SAFE_INTEGER - 1}`).terms[1]).toMatchObject({
+      value: Number.MAX_SAFE_INTEGER - 1,
     })
+  })
+
+  // `2+5` is arithmetic with no dice in it, and `roll()` answering 7 would be reporting
+  // a total with nothing rolled to back it up. `parseFormula` is the documented way to
+  // check what someone typed, so it has to be the thing that says no.
+  it('rejects a formula that rolls no dice', () => {
+    expect(() => parseFormula('2+5')).toThrow(/at least one die/)
+    expect(() => parseFormula('5')).toThrow(/at least one die/)
+    expect(() => parseFormula('10-3')).toThrow(/at least one die/)
+    expect(() => parseFormula('0d6')).toThrow(/at least one die/)
+    expect(() => parseFormula('0d6+5')).toThrow(/at least one die/)
   })
 
   // Keeping none of them is not a way of rolling dice, and reads as a typo for kh1.

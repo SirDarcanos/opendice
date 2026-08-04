@@ -38,6 +38,11 @@ the next release is a major version.
 - A numeric `bonuses` entry must be a whole number that stays exact. `NaN`, an infinity and
   `1.5` used to pass straight through into the total.
 - `4d6kh0` is refused rather than keeping no dice and contributing nothing.
+- **Breaking:** a formula must roll at least one die. `roll('2+5')` answered 7 and
+  `roll('0d6')` answered 0, both handing back a total with an empty `dice` list behind it.
+  `parseFormula` is the documented way to check what someone typed, so it is what refuses
+  them — which also means a `bonuses` fragment has to contain dice, and a plain number
+  should be passed as a number.
 
 ### Changed
 

@@ -277,6 +277,25 @@ formulas rather than a person writing them.
 A keep rule has to keep at least one die, so `4d6kh0` is refused too — it reads as a typo
 for `4d6kh1`, and quietly counting nothing would be worse than saying so.
 
+## A formula has to roll something
+
+Every formula must roll at least one die. Plain arithmetic is refused:
+
+```ts
+roll('2d6+3') // fine
+roll('2+5') //   throws an error — no dice in it
+roll('0d6') //   throws an error — a die nobody rolls
+```
+
+`2+5` is 7 whoever works it out, and answering it here would mean handing back a `total`
+with an empty `dice` list behind it — a number with nothing to show for itself. If you
+want to add a plain number to a roll, put it in the formula or pass it as a bonus:
+
+```ts
+roll('1d20+5')
+roll('1d20', { bonuses: [5] })
+```
+
 ## Showing an error to someone
 
 Every error here quotes the text it could not read, so you can show the person what went
@@ -316,6 +335,7 @@ function isValid(text: string): boolean {
 
 isValid('2d6+3') // true
 isValid('two dice') // false
+isValid('5') // false — no dice in it
 ```
 
 It throws on anything it can't read, so a bad formula fails at the moment the person typed

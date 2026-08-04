@@ -109,9 +109,14 @@ function largestTotal(terms: Term[]): number {
   }, 0)
 }
 
-/** Throw unless these terms can be rolled: few enough dice, and a total that stays exact. */
+/** Throw unless these terms can be rolled: some dice, few enough of them, an exact total. */
 export function assertRollable(terms: Term[]): void {
   const count = terms.reduce((n, t) => (t.kind === 'dice' ? n + t.count : n), 0)
+  // `2+5` is arithmetic, and `0d6` is a die nobody rolls. Either would report a total
+  // with an empty `dice` to back it up, which is not this library answering.
+  if (count < 1) {
+    throw new Error('A dice formula must roll at least one die, but this one rolls none')
+  }
   if (count > MAX_DICE) {
     throw new Error(`A roll may use at most ${MAX_DICE} dice, but this one asks for ${count}`)
   }
