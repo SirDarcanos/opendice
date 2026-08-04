@@ -1,0 +1,55 @@
+{
+  "name": "@openfray/dice",
+  "version": "0.1.0",
+  "description": "Honest dice for d20 systems: a formula parser and one roll() over a CSPRNG with modulo-bias rejection.",
+  "license": "MIT",
+  "author": "OpenFray contributors",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "dice",
+    "dice-roller",
+    "d20",
+    "rpg",
+    "ttrpg",
+    "csprng",
+    "random"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenFrayApp/openfray-dice.git"
+  },
+  "homepage": "https://github.com/OpenFrayApp/openfray-dice#readme",
+  "bugs": {
+    "url": "https://github.com/OpenFrayApp/openfray-dice/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
+  }
+}
