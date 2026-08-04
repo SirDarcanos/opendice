@@ -14,6 +14,21 @@ export type RandomSource = () => number
 const UINT32_RANGE = 2 ** 32
 
 /**
+ * The most faces one draw can address. Above this, the largest exact multiple of `sides`
+ * inside the uint32 range is zero, so every draw would land above the ceiling and the
+ * rejection loop would never end.
+ */
+export const MAX_SIDES = UINT32_RANGE
+
+/**
+ * How many rejections in a row mean the source is broken rather than unlucky. Every die
+ * accepts more than half of all draws, so a working source reaching this is a one-in-2^1000
+ * event, while a source that only ever returns a rejected value would otherwise spin
+ * forever. This is the guard the explosion cap cannot give: rejection happens first.
+ */
+const MAX_REDRAWS = 1000
+
+/**
  * The platform CSPRNG — `crypto.getRandomValues`, not `Math.random`, whose quality the
  * spec allows to vary across engines. Available in browsers and in Node 19 and later.
  */
@@ -30,12 +45,17 @@ export const cryptoRandom: RandomSource = () => {
  * die — never derive several dice from one number.
  */
 export function rollDie(sides: number, rand: RandomSource = cryptoRandom): number {
-  if (!Number.isInteger(sides) || sides < 1) {
-    throw new Error(`rollDie: sides must be a positive integer, got ${sides}`)
+  if (!Number.isInteger(sides) || sides < 1 || sides > MAX_SIDES) {
+    throw new Error(`rollDie: sides must be a whole number from 1 to ${MAX_SIDES}, got ${sides}`)
   }
   // Largest multiple of `sides` that fits in the uint32 range; reject at or above it.
   const ceiling = Math.floor(UINT32_RANGE / sides) * sides
   let x = rand() >>> 0
-  while (x >= ceiling) x = rand() >>> 0
+  for (let redraws = 0; x >= ceiling; redraws++) {
+    if (redraws >= MAX_REDRAWS) {
+      throw new Error(`rollDie: the random source rejected ${MAX_REDRAWS} draws in a row`)
+    }
+    x = rand() >>> 0
+  }
   return (x % sides) + 1
 }

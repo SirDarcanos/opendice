@@ -9,6 +9,7 @@
  *   1d20adv/1d20dis  advantage/disadv     roll two, keep highest/lowest
  *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3
  *   NdM!             exploding            1d6! — a top face rolls again and adds
+ *   NdMxK            group multiplier     1d6x10 — this group's total, times K
  *   +1d4             additive sub-roll    1d8+1d4+3
  *   " fire"          trailing tag         metadata, never math
  *
@@ -18,7 +19,31 @@
  * other stray token, so a typo is never silently swallowed as a tag.
  */
 
+import { MAX_SIDES } from './rng.ts'
+
 export type AdvantageState = 'normal' | 'advantage' | 'disadvantage'
+
+/** Longest formula accepted. A formula this long is generated, not typed. */
+const MAX_FORMULA_LENGTH = 1000
+
+/**
+ * Most dice one roll may ask for, counting every term. Rolling is one draw per die, so
+ * without a ceiling `99999999d6` is a request to hang the process — and a formula is
+ * exactly the kind of thing that arrives from somewhere untrusted.
+ */
+export const MAX_DICE = 1000
+
+/**
+ * How many times one die may explode, so `results` can hold this many rolls plus the
+ * first. Lives here with the other limits; `roll()` enforces it.
+ */
+export const MAX_EXPLOSIONS = 100
+
+/** Characters a formula can legitimately contain; everything else is not one. */
+const FORMULA_CHARACTERS = /[^a-z0-9+\-! ]/gi
+
+/** The first character of a formula that is not one of those, if there is one. */
+const FORBIDDEN_CHARACTER = /[^a-z0-9+\-! ]/i
 
 export interface DiceTerm {
   kind: 'dice'
@@ -31,6 +56,8 @@ export interface DiceTerm {
   advantage?: 'advantage' | 'disadvantage'
   /** Every die landing on its top face is rolled again and added. */
   explode?: true
+  /** Multiply this group's total by a whole number. Binds to the group, never the sum. */
+  multiplier?: number
 }
 
 export interface FlatTerm {
@@ -52,8 +79,60 @@ export interface ParseOptions {
    * Trailing words to accept as a tag, lowercased. Anything else at the end of a
    * formula is a parse error — which is the point: an unrecognised word is far more
    * often a typo than a tag, and swallowing it would hide the mistake.
+   *
+   * `& object` rules out a bare string, which is an iterable of single letters: passing
+   * `'fire'` rather than `['fire']` would otherwise quietly accept `f`, `i`, `r` and `e`.
    */
-  tags?: Iterable<string>
+  tags?: Iterable<string> & object
+}
+
+/**
+ * A copy holding only its own properties. Every optional field here is read by asking
+ * whether it is there, and a plain `{}` inherits from `Object.prototype` — so anything
+ * that can pollute that prototype could otherwise forge a keep rule, a tag, or the
+ * random source itself, and the roll log would report the forgery as fact.
+ */
+export function ownProperties<T extends object>(source: T): T {
+  return Object.assign(Object.create(null), source) as T
+}
+
+/**
+ * A short, inert excerpt of input to quote in an error. Errors are the one place raw
+ * input travels back out, and a caller showing one on a page would otherwise be pasting
+ * whatever was typed straight into it. A formula cannot contain anything replaced here,
+ * so nothing a real one would say is lost.
+ */
+function excerpt(text: string): string {
+  const inert = text.replace(FORMULA_CHARACTERS, '?')
+  return inert.length > 40 ? `${inert.slice(0, 40)}…` : inert
+}
+
+/** The largest total these terms could reach, for checking every total stays exact. */
+function largestTotal(terms: Term[]): number {
+  return terms.reduce((sum, t) => {
+    if (t.kind === 'flat') return sum + Math.abs(t.value)
+    return sum + t.count * t.sides * (t.explode ? MAX_EXPLOSIONS + 1 : 1) * (t.multiplier ?? 1)
+  }, 0)
+}
+
+/** Throw unless these terms can be rolled: some dice, few enough of them, an exact total. */
+export function assertRollable(terms: Term[]): void {
+  const count = terms.reduce((n, t) => (t.kind === 'dice' ? n + t.count : n), 0)
+  // `2+5` is arithmetic, and `0d6` is a die nobody rolls. Either would report a total
+  // with an empty `dice` to back it up, which is not this library answering.
+  if (count < 1) {
+    throw new Error('A dice formula must roll at least one die, but this one rolls none')
+  }
+  if (count > MAX_DICE) {
+    throw new Error(`A roll may use at most ${MAX_DICE} dice, but this one asks for ${count}`)
+  }
+  // Past 2^53 JavaScript starts rounding, so a total would be quietly wrong rather than
+  // large. Dice alone cannot reach it; a written-out number can.
+  if (!Number.isSafeInteger(largestTotal(terms))) {
+    throw new Error(
+      `A roll may not reach a total above ${Number.MAX_SAFE_INTEGER}, where whole numbers stop being exact`,
+    )
+  }
 }
 
 /** A DiceTerm from the parser's captures: blank count → 1; adv/dis desugars to 2 dice keep 1. */
@@ -62,8 +141,12 @@ function diceTerm(
   countStr: string,
   sidesStr: string,
   suffix: string | undefined,
+  multiplierStr: string | undefined,
 ): DiceTerm {
   const sides = Number(sidesStr)
+  if (sides < 1 || sides > MAX_SIDES) {
+    throw new Error(`A die must have between 1 and ${MAX_SIDES} sides, but this one has ${sides}`)
+  }
   const term: DiceTerm = {
     kind: 'dice',
     sign,
@@ -77,7 +160,20 @@ function diceTerm(
   } else if (suffix === '!') {
     term.explode = true
   } else if (suffix) {
-    term.keep = { mode: suffix.slice(0, 2) as 'kh' | 'kl', n: Number(suffix.slice(2)) }
+    const n = Number(suffix.slice(2))
+    if (n < 1) {
+      throw new Error(`A keep rule must keep at least one die, but "${suffix}" keeps none`)
+    }
+    term.keep = { mode: suffix.slice(0, 2) as 'kh' | 'kl', n }
+  }
+  if (multiplierStr) {
+    const times = Number(multiplierStr.slice(1))
+    if (times < 1) {
+      throw new Error(
+        `A multiplier must be at least 1, but "${multiplierStr}" would erase the dice`,
+      )
+    }
+    term.multiplier = times
   }
   return term
 }
@@ -85,35 +181,63 @@ function diceTerm(
 /** Parse a dice formula into structured terms. Throws on malformed input. */
 export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   const source = input.trim()
+  if (source.length > MAX_FORMULA_LENGTH) {
+    throw new Error(
+      `Dice formula is too long: ${source.length} characters, the limit is ${MAX_FORMULA_LENGTH}`,
+    )
+  }
+  // Only what a formula is written with. The parser strips whitespace before reading a
+  // formula but `source` keeps it verbatim, so without this a tab, a newline or a
+  // zero-width space rides through into `RollResult.formula` — and a newline there
+  // forges a second line in whatever log or row the caller writes the roll to. The
+  // Kelvin sign gets in the same way, by lowercasing to a plain `k`.
+  const stray = FORBIDDEN_CHARACTER.exec(source)
+  if (stray) {
+    const point = stray[0].codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')
+    throw new Error(
+      `A dice formula may only contain letters, digits, spaces, "+", "-" and "!", but this one has U+${point}`,
+    )
+  }
   let expr = source.toLowerCase()
-  const tags = opts.tags instanceof Set ? opts.tags : new Set(opts.tags ?? [])
+  const accepted = ownProperties(opts).tags
+  if (typeof accepted === 'string') {
+    throw new Error('Dice tags must be a list of words, not a single string')
+  }
+  const tags = accepted instanceof Set ? accepted : new Set(accepted ?? [])
 
   let tag: string | undefined
-  const tagMatch = /\s+([a-z]+)$/.exec(expr)
+  // One space, not a run of them: `\s+` here backtracks quadratically over long padding,
+  // and the run is stripped a few lines below anyway.
+  const tagMatch = /\s([a-z]+)$/.exec(expr)
   if (tagMatch && tags.has(tagMatch[1])) {
     tag = tagMatch[1]
     expr = expr.slice(0, tagMatch.index)
   }
   expr = expr.replace(/\s+/g, '')
-  if (expr === '') throw new Error(`Empty dice formula: "${source}"`)
+  if (expr === '') throw new Error(`Empty dice formula: "${excerpt(source)}"`)
 
   const terms: Term[] = []
-  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!)?|(\d+))/y
+  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!)?(x\d+)?|(\d+))/y
   let pos = 0
   while (pos < expr.length) {
     re.lastIndex = pos
     const m = re.exec(expr)
     if (!m || m.index !== pos) {
-      throw new Error(`Cannot parse "${source}" near "${expr.slice(pos)}"`)
+      throw new Error(`Cannot parse "${excerpt(source)}" near "${excerpt(expr.slice(pos))}"`)
     }
     const sign: 1 | -1 = m[1] === '-' ? -1 : 1
-    if (m[5] !== undefined) {
-      terms.push({ kind: 'flat', value: sign * Number(m[5]) })
+    if (m[6] !== undefined) {
+      terms.push({ kind: 'flat', value: sign * Number(m[6]) })
     } else {
-      terms.push(diceTerm(sign, m[2], m[3], m[4]))
+      terms.push(diceTerm(sign, m[2], m[3], m[4], m[5]))
     }
     pos = re.lastIndex
   }
 
-  return { source, terms, ...(tag !== undefined ? { tag } : {}) }
+  assertRollable(terms)
+  return ownProperties({
+    source,
+    terms: terms.map(ownProperties),
+    ...(tag !== undefined ? { tag } : {}),
+  })
 }

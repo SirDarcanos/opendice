@@ -8,7 +8,73 @@ requests that would.
 
 ## [Unreleased]
 
-Nothing yet.
+Hardening after an adversarial review of the package. Some of it changes the public API, so
+the next release is a major version.
+
+### Security
+
+- A formula can no longer hang the process. `1d4294967297` used to spin forever — above 2³²
+  sides the rejection ceiling rounds down to zero, so every draw was rejected — and
+  `99999999d6` rolled dice one at a time until the process ran out of memory. A formula is
+  bounded to 1,000 dice, 2³² sides per die and 1,000 characters, and bonuses count towards
+  the dice limit.
+- `rollDie` gives up after 1,000 rejected draws in a row rather than redrawing forever. A
+  `RandomSource` returning a value the die always rejects used to hang, which is exactly
+  what the explosion cap exists to prevent — rejection just happens first.
+- Options and terms are read as own properties. A polluted `Object.prototype` could
+  otherwise supply the `rand` source for a roll that passed none, force advantage, add
+  bonuses, or forge a `tag` on the result — with the roll reporting all of it as fact.
+- Parsing no longer slows down quadratically on a formula padded with whitespace.
+- A formula may only contain letters, digits, spaces, `+`, `-` and `!`. Whitespace is
+  stripped before a formula is read but `formula` keeps the text verbatim, so a tab, a line
+  break, a non-breaking space, U+2028 or a zero-width space all used to ride through into
+  `RollResult.formula` — and a line break there forges an extra line in whatever log or CSV
+  row the caller writes the roll to, which is the one artifact this package exists to make
+  trustworthy. Twenty-five code points could do it, U+212A among them: it lowercases to a
+  plain `k`, so `4d6Kh3` parsed and left the sign in `formula`.
+- An error no longer repeats the input word for word. `roll('<img src=x onerror=…>')` threw
+  an `Error` whose message carried that markup verbatim and twice — and a caller putting the
+  message on a page, which is what an error about typed input is for, would have put the
+  markup on the page with it. What is quoted is now shortened, and anything a formula could
+  not contain is replaced. Escaping what you display is still the caller's job.
+
+### Added
+
+- A group multiplier: `1d6x10` rolls a d6 and multiplies that group by ten, and `2d6x3`
+  adds both dice then triples them. It binds to one dice group the way `kh3` does, so it
+  never applies to the whole sum and there is no precedence to get wrong — `1d6x10+5` is 35
+  on a 3, not 80. It composes with keep rules, advantage and exploding, always applying last
+  to whatever the group kept. `5x2` is not a formula: this multiplies dice, not arithmetic.
+  `DieGroup` gained `multiplier`, so a total can still be checked against `kept`.
+
+### Fixed
+
+- A total that cannot be exact is refused instead of quietly rounded. `1d6+99999999999999999999`
+  reported a rounded number and `1d6+` followed by four hundred nines reported `Infinity`.
+- A numeric `bonuses` entry must be a whole number that stays exact. `NaN`, an infinity and
+  `1.5` used to pass straight through into the total.
+- `4d6kh0` is refused rather than keeping no dice and contributing nothing.
+- **Breaking:** a formula must roll at least one die. `roll('2+5')` answered 7 and
+  `roll('0d6')` answered 0, both handing back a total with an empty `dice` list behind it.
+  `parseFormula` is the documented way to check what someone typed, so it is what refuses
+  them — which also means a `bonuses` fragment has to contain dice, and a plain number
+  should be passed as a number.
+
+### Changed
+
+- **Breaking:** `tags` takes a list or a `Set`, and a bare string is now refused. A string
+  is an iterable of single letters, so `tags: 'fire'` used to quietly accept `f`, `i`, `r`
+  and `e`. TypeScript rejects it too.
+- **Breaking:** `parseFormula` rejects a die with no sides (`1d0`) and one with more sides
+  than a single draw can address, rather than parsing it and failing later at roll time.
+  Checking a formula now catches everything rolling it would.
+- `parseFormula` and `roll` return objects with no prototype. Reading, spreading and
+  `JSON.stringify` are unchanged; `console.log` labels them `[Object: null prototype]`.
+
+### Documented
+
+- A rigged `rand` produces a result identical to a fair one — nothing records which source
+  a roll used. Only pass a source your own code chooses.
 
 ## [1.0.0] — 2026-08-04
 

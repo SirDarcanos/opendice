@@ -13,6 +13,9 @@
 
 import { cryptoRandom, rollDie, type RandomSource } from './rng.ts'
 import {
+  MAX_EXPLOSIONS,
+  assertRollable,
+  ownProperties,
   parseFormula,
   type AdvantageState,
   type DiceTerm,
@@ -26,6 +29,11 @@ export interface DieGroup {
   /** Every die rolled, including those dropped by adv/dis/keep. */
   results: number[]
   kept: number[]
+  /**
+   * What this group's kept dice were multiplied by, 1 unless the formula said otherwise.
+   * Reported so `total` can be checked against `kept` rather than taken on trust.
+   */
+  multiplier: number
   /** This group's signed contribution to the total. */
   total: number
   /**
@@ -55,10 +63,15 @@ export interface RollContext {
   advantage?: AdvantageState
   /** Extra terms to add: plain numbers, or formula fragments like `'1d4'`. */
   bonuses?: (number | string)[]
-  /** Injectable randomness for tests; defaults to the CSPRNG. */
+  /**
+   * Injectable randomness for tests; defaults to the CSPRNG. A result records what the
+   * dice showed and never where the numbers came from, so a rigged source produces a
+   * result identical to a fair one: pass only a source you trust, and never one a user
+   * of your program can choose.
+   */
   rand?: RandomSource
   /** Trailing words to accept as a tag — see `ParseOptions`. */
-  tags?: Iterable<string>
+  tags?: Iterable<string> & object
 }
 
 /** Apply adv/dis to the first plain d20 term (roll two, keep highest/lowest). */
@@ -69,24 +82,27 @@ function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'):
       return t
     }
     applied = true
-    return {
+    return ownProperties<DiceTerm>({
       ...t,
       count: 2,
       keep: { mode: advantage === 'advantage' ? 'kh' : 'kl', n: 1 },
       advantage,
-    }
+    })
   })
 }
 
 /** Turn extra bonuses (numbers or formula fragments) into additive terms. */
 function bonusTerms(bonuses: (number | string)[]): Term[] {
-  return bonuses.flatMap((b) =>
-    typeof b === 'number' ? [{ kind: 'flat', value: b } satisfies FlatTerm] : parseFormula(b).terms,
-  )
+  return bonuses.flatMap((b) => {
+    if (typeof b !== 'number') return parseFormula(b).terms
+    // A formula can only say a whole number, and a bonus is the same arithmetic. NaN or
+    // a fraction would otherwise pass straight through into the total.
+    if (!Number.isSafeInteger(b)) {
+      throw new Error(`A numeric bonus must be a whole number that stays exact, got ${b}`)
+    }
+    return [{ kind: 'flat', value: b } satisfies FlatTerm]
+  })
 }
-
-/** Guards against a loaded `RandomSource`; a fair die never comes near it. */
-const MAX_EXPLOSIONS = 100
 
 /**
  * Roll one die, rolling again while it lands on its top face; returns the whole chain.
@@ -118,13 +134,15 @@ function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
   }
   const kept = keptDice(results, term.keep)
   const sum = kept.reduce((a, b) => a + b, 0)
+  const multiplier = term.multiplier ?? 1
   const sole = kept.length === 1 ? kept[0] : undefined
   return {
     sides: term.sides,
     sign: term.sign,
     results,
     kept,
-    total: term.sign * sum,
+    multiplier,
+    total: term.sign * sum * multiplier,
     naturalHigh: sole === term.sides,
     naturalLow: sole === 1,
   }
@@ -156,14 +174,16 @@ export function soleDieGroup(result: RollResult): DieGroup | undefined {
 
 /** Parse, apply adv/dis and bonuses, roll, and report what the dice did. */
 export function roll(formula: string, ctx: RollContext = {}): RollResult {
-  const rand = ctx.rand ?? cryptoRandom
-  const parsed = parseFormula(formula, { tags: ctx.tags })
+  const options = ownProperties(ctx)
+  const rand = options.rand ?? cryptoRandom
+  const parsed = parseFormula(formula, { tags: options.tags })
   let terms = parsed.terms
-  if (ctx.advantage && ctx.advantage !== 'normal') {
-    terms = applyAdvantage(terms, ctx.advantage)
+  if (options.advantage && options.advantage !== 'normal') {
+    terms = applyAdvantage(terms, options.advantage)
   }
-  if (ctx.bonuses && ctx.bonuses.length > 0) {
-    terms = [...terms, ...bonusTerms(ctx.bonuses)]
+  if (options.bonuses && options.bonuses.length > 0) {
+    terms = [...terms, ...bonusTerms(options.bonuses)]
+    assertRollable(terms)
   }
 
   const dice: DieGroup[] = []
@@ -185,7 +205,7 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
     dice.push(group)
   }
 
-  return {
+  return ownProperties({
     formula: parsed.source,
     dice,
     modifier,
@@ -193,5 +213,5 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
     total,
     advantageState,
     ...(parsed.tag !== undefined ? { tag: parsed.tag } : {}),
-  }
+  })
 }

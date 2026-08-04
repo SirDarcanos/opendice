@@ -61,22 +61,23 @@ roll('1d20') //      one twenty-sided die
 roll('3d8') //       three eight-sided dice, added together
 roll('1d20+5') //    one d20, plus 5
 roll('2d6-1') //     two d6, minus 1
-roll('1d78') //      any number of sides works, not just the usual ones
+roll('1d78') //      unusual numbers of sides are fine, not just the usual ones
 ```
 
 ### The formula language
 
-| You write   | It means                                                     |
-| ----------- | ------------------------------------------------------------ |
-| `2d6`       | Roll two six-sided dice and add them up.                     |
-| `1d20+7`    | Roll a d20 and add 7. Use `-7` to subtract.                  |
-| `1d8+1d4+3` | Mix as many dice and numbers as you like.                    |
-| `4d6kh3`    | Roll four d6, **k**eep the **h**ighest **3**.                |
-| `4d6kl3`    | Same, but keep the **l**owest 3.                             |
-| `1d20adv`   | Roll two d20 and keep the higher one. ("advantage")          |
-| `1d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")        |
-| `1d6!`      | Exploding — see [below](#exploding-dice).                    |
-| `2d10 fire` | A label on the end. See [Labels](#labels) — it's never math. |
+| You write   | It means                                                                  |
+| ----------- | ------------------------------------------------------------------------- |
+| `2d6`       | Roll two six-sided dice and add them up.                                  |
+| `1d20+7`    | Roll a d20 and add 7. Use `-7` to subtract.                               |
+| `1d8+1d4+3` | Mix as many dice and numbers as you like.                                 |
+| `4d6kh3`    | Roll four d6, **k**eep the **h**ighest **3**.                             |
+| `4d6kl3`    | Same, but keep the **l**owest 3.                                          |
+| `1d20adv`   | Roll two d20 and keep the higher one. ("advantage")                       |
+| `1d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")                     |
+| `1d6!`      | Exploding — see [below](#exploding-dice).                                 |
+| `1d6x10`    | Roll a d6, multiply that group by 10 — see [below](#multiplying-a-group). |
+| `2d10 fire` | A label on the end. See [Labels](#labels) — it's never math.              |
 
 Spaces are ignored, and capital letters are fine: `2D6 + 3` works.
 
@@ -105,6 +106,8 @@ r.dice[0]
 //   results: [4, 17],   every die that was rolled
 //   kept: [17],         the ones that counted toward the total
 //   sign: 1,            1 for added, -1 for subtracted (as in '10-1d4')
+//   multiplier: 1,      what the kept dice were multiplied by
+
 //   total: 17,          what this group contributed
 //   naturalHigh: false, the kept die showed the highest face — see below
 //   naturalLow: false,  the kept die showed a 1
@@ -150,6 +153,9 @@ roll('1d20+7', { bonuses: [2, '1d4'] }) // rolls 1d20 + 7 + 2 + 1d4
 This is for extras your code works out while running, so you don't have to build formula
 strings by hand.
 
+A plain number has to be a whole one, the same as a `+3` written into a formula. A fraction,
+`NaN` or an infinity is refused rather than folded into the total.
+
 ## Exploding dice
 
 Put a `!` after a die and it becomes **exploding**: whenever it lands on its highest face,
@@ -186,6 +192,47 @@ Two things it will not do:
   practice — it's there so a deliberately loaded random source can't hang your program. A
   one-sided die never explodes at all, since every roll would be a top face.
 
+## Multiplying a group
+
+Put `x` and a whole number after a die and that group's total is multiplied by it:
+
+```ts
+roll('1d6x10') //  a d6, times ten: 10, 20, 30, 40, 50 or 60
+roll('2d6x3') //   both dice added up, then tripled
+```
+
+It multiplies **that group of dice**, never the whole sum. So the `+5` here is added
+afterwards, untouched:
+
+```ts
+roll('1d6x10+5') // rolled 3 -> 3 x 10 + 5 = 35
+```
+
+That is the whole of the rule, and it is why there is no `*` and no brackets: a multiplier
+belongs to one group the way `kh3` does, so there is never a question of what it applies to.
+`5x2` is not a formula — this multiplies dice, not arithmetic.
+
+It combines with everything else, and always applies last, to whatever the group kept:
+
+```ts
+roll('4d6kh3x2') //  keep the best three, then double them
+roll('1d20advx2') // advantage, then double the die that won
+roll('1d6!x2') //    let it explode, then double the whole chain
+```
+
+`multiplier` is reported on the group, so a total can be checked rather than trusted:
+
+```ts
+const g = roll('2d6x3', { rand: faces(2, 4) }).dice[0]
+g.kept //       [2, 4]
+g.multiplier // 3
+g.total //      18
+```
+
+There is no division. Dividing needs a rounding rule — down, to nearest, in whose favour —
+and picking one would be this library deciding what your roll means. `Math.floor(total / 3)`
+is yours to write and says exactly what you chose.
+
 ## Labels
 
 A formula can end in a word: `2d10+8 fire`. The word is carried along with the result and
@@ -197,6 +244,15 @@ You must say which words you accept:
 roll('2d10+8 fire', { tags: ['fire', 'cold'] }).tag // 'fire'
 
 roll('2d10+8 fire') // throws an error
+```
+
+Give it a list, even for a single word. A bare `'fire'` is refused, because JavaScript
+reads a string as its separate letters — it would accept `f`, `i`, `r` and `e` and nothing
+else:
+
+```ts
+roll('2d10+8 fire', { tags: ['fire'] }) // right
+roll('2d10+8 fire', { tags: 'fire' }) //   throws an error
 ```
 
 That may look fussy, but "fire" means nothing on its own. It might be a category, a colour,
@@ -240,6 +296,93 @@ r.dice[0].naturalHigh // the d20
 r.dice[1].naturalHigh // the d4
 ```
 
+## Limits
+
+A formula is usually something a person typed, so there is a limit on what one can ask
+for. Each of these is refused with an error rather than attempted:
+
+| Limit                                | Why                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **1,000 dice** in one roll           | Every die is rolled separately, so `99999999d6` is a way of asking a program to stop responding rather than a roll anyone wants.     |
+| **4,294,967,296 sides** on a die     | That is how many faces one random number covers. More would mean drawing twice for one die, and the fairness rests on one draw each. |
+| **1,000 characters** in a formula    | Longer than anyone types.                                                                                                            |
+| **100 explosions** on one die        | See [exploding dice](#exploding-dice).                                                                                               |
+| **A total of 9,007,199,254,740,991** | Above that, JavaScript stops counting in exact whole numbers. A total that cannot be exact is refused rather than quietly rounded.   |
+
+Bonuses count towards the dice limit, so this is refused just as `roll('1200d6')` is:
+
+```ts
+roll('600d6', { bonuses: ['600d6'] }) // throws an error
+```
+
+All of these sit far above ordinary use. If you are reaching one, something is generating
+formulas rather than a person writing them.
+
+A keep rule has to keep at least one die, so `4d6kh0` is refused too — it reads as a typo
+for `4d6kh1`, and quietly counting nothing would be worse than saying so.
+
+## A formula has to roll something
+
+Every formula must roll at least one die. Plain arithmetic is refused:
+
+```ts
+roll('2d6+3') // fine
+roll('2+5') //   throws an error — no dice in it
+roll('0d6') //   throws an error — a die nobody rolls
+```
+
+`2+5` is 7 whoever works it out, and answering it here would mean handing back a `total`
+with an empty `dice` list behind it — a number with nothing to show for itself. If you
+want to add a plain number to a roll, put it in the formula or pass it as a bonus:
+
+```ts
+roll('1d20+5')
+roll('1d20', { bonuses: [5] })
+```
+
+## What a formula may be written with
+
+Letters, digits, `+`, `-`, `!` and ordinary spaces. Nothing else — not a tab, not a line
+break, not one of the many other spaces Unicode has:
+
+```ts
+roll('2D6 + 3') // fine — spaces and capitals both
+roll('1d\n20') //  throws an error
+roll('1d6*2') //   throws an error
+```
+
+Refusing them matters because `result.formula` gives you back the text you passed, exactly
+as you passed it. A line break inside it would survive into that field, and from there into
+whatever you write the roll to:
+
+```
+mallory rolled 1d
+20 = 5
+```
+
+One roll, two lines in the log — and a log nobody can trust is the opposite of what this
+package is for. The same goes for a CSV row, or a record in a database. Refusing the
+character up front means `formula` is always a single line of plain text.
+
+That also rules out characters that merely _look_ like the ones a formula uses: `4d6Kh3`
+written with a Kelvin sign is refused rather than quietly read as `4d6kh3`.
+
+## Showing an error to someone
+
+Every error quotes the text it could not read, shortened, so you can show the person what
+went wrong:
+
+```ts
+roll('2d6 + x') // Error: Cannot parse "2d6 + x" near "+x"
+roll('1d6*2') //   Error: A dice formula may only contain letters, digits, spaces, "+", "-" and "!", but this one has U+002A
+```
+
+A character it won't accept is named by its code rather than repeated, so an error can
+never carry a payload back to wherever you display it.
+
+That makes the message safer to show, not safe: **escape anything you put on a page**, from
+here or anywhere else.
+
 ## `parseFormula(text, options?)`
 
 Reads a formula and tells you what it means — **without rolling anything**.
@@ -261,6 +404,7 @@ function isValid(text: string): boolean {
 
 isValid('2d6+3') // true
 isValid('two dice') // false
+isValid('5') // false — no dice in it
 ```
 
 It throws on anything it can't read, so a bad formula fails at the moment the person typed
@@ -303,7 +447,8 @@ rollDie(78) // a number from 1 to 78
 Use it when you only need one die and don't need the breakdown. It uses exactly the same
 fair randomness as `roll()`.
 
-It throws if `sides` isn't a whole number of 1 or more.
+It throws if `sides` isn't a whole number from 1 to 4,294,967,296 — see
+[Limits](#limits).
 
 ## `cryptoRandom()`
 
@@ -384,6 +529,11 @@ function faces(...list: number[]) {
 roll('2d6+3', { rand: faces(5, 3) }).total // 11, every time
 ```
 
+Only ever pass a source your own code decides on. A result says what the dice showed, never
+where the numbers came from, so a rigged source produces a result that looks exactly like a
+fair one — there is no way to tell them apart afterwards. If someone using your program can
+choose the source, they can choose the roll.
+
 ## About the randomness
 
 You get all of this from `roll()` without asking. There is nothing to switch on.
@@ -398,6 +548,10 @@ You get all of this from `roll()` without asking. There is nothing to switch on.
 - **Nothing is ever nudged.** There's no "you've rolled badly, here's a good one" logic and
   there never will be. Real dice come up 1 three times in a row sometimes; so do these. Any
   code that smoothed that out would make any record of the rolls a lie, and people notice.
+- **Nothing outside your program can reach in and change it.** The options you pass are read
+  as you passed them, so other code running alongside cannot slip in its own randomness, a
+  label, or an extra die. The one exception is the `rand` option above — that one is yours
+  to guard, because it replaces the randomness outright.
 
 ## What this library does not do
 
