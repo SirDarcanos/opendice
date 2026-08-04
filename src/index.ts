@@ -19,7 +19,7 @@ export {
 } from './formula.ts'
 
 export {
-  d20Group,
+  soleDieGroup,
   keptFlags,
   roll,
   type DieGroup,

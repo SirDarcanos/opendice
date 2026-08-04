@@ -44,7 +44,7 @@ Six things. Most projects only ever need the first one.
 | `rollDie(sides, source?)`   | Rolls one die. No formula, no parsing.                           |
 | `cryptoRandom()`            | The raw random number the dice are built on.                     |
 | `keptFlags(group)`          | Marks which dice counted, for greying out the rest.              |
-| `d20Group(result)`          | Finds the d20 in a result, if there is exactly one.              |
+| `soleDieGroup(result)`      | Finds the dice in a result, if it used only one kind.            |
 
 Each is explained below.
 
@@ -83,17 +83,15 @@ Spaces are ignored, and capital letters are fine: `2D6 + 3` works.
 const r = roll('1d20adv+5')
 ```
 
-| Property         | Example       | Meaning                                                                        |
-| ---------------- | ------------- | ------------------------------------------------------------------------------ |
-| `total`          | `22`          | The final number.                                                              |
-| `dice`           | see below     | One entry per group of dice.                                                   |
-| `modifier`       | `5`           | All the plain numbers added together.                                          |
-| `modifiers`      | `[5]`         | Each plain number on its own.                                                  |
-| `formula`        | `'1d20adv+5'` | What you passed in.                                                            |
-| `advantageState` | `'advantage'` | `'normal'`, `'advantage'` or `'disadvantage'`.                                 |
-| `naturalHigh`    | `false`       | Would be `true` if the kept d20 showed a 20. See [below](#natural-20s-and-1s). |
-| `naturalLow`     | `false`       | Would be `true` if it showed a 1.                                              |
-| `tag`            | `undefined`   | The label on the end, if there was one.                                        |
+| Property         | Example       | Meaning                                        |
+| ---------------- | ------------- | ---------------------------------------------- |
+| `total`          | `22`          | The final number.                              |
+| `dice`           | see below     | One entry per group of dice.                   |
+| `modifier`       | `5`           | All the plain numbers added together.          |
+| `modifiers`      | `[5]`         | Each plain number on its own.                  |
+| `formula`        | `'1d20adv+5'` | What you passed in.                            |
+| `advantageState` | `'advantage'` | `'normal'`, `'advantage'` or `'disadvantage'`. |
+| `tag`            | `undefined`   | The label on the end, if there was one.        |
 
 Each entry in `dice` describes one group of dice:
 
@@ -105,6 +103,8 @@ r.dice[0]
 //   kept: [17],         the ones that counted toward the total
 //   sign: 1,            1 for added, -1 for subtracted (as in '10-1d4')
 //   total: 17,          what this group contributed
+//   naturalHigh: false, the kept die showed the highest face — see below
+//   naturalLow: false,  the kept die showed a 1
 // }
 ```
 
@@ -171,15 +171,35 @@ along.
 
 ## Highest and lowest faces
 
-`naturalHigh` is `true` when the kept d20 came up 20. `naturalLow` is `true` when it came
-up 1.
+Every group of dice reports whether the die it kept landed on its highest or lowest face:
 
-That is all they mean: **what the die showed**. Whether hitting the top of the die is
-special, and what happens if it is, is entirely up to you — so you don't have to declare
-anything to get these. Every roll reports them.
+```ts
+roll('1d20').dice[0].naturalHigh // true if the d20 came up 20
+roll('1d6').dice[0].naturalHigh //  true if the d6 came up 6
+roll('1d78').dice[0].naturalHigh // true if the d78 came up 78
+roll('1d20').dice[0].naturalLow //  true if it came up 1
+```
 
-Both are `false` unless exactly one d20 was kept. A 20 on one of four dice isn't the sole
-result of anything.
+That is all they mean: **what the die showed**. Whether landing on the top of a die is
+special, and what happens if it is, is entirely up to you — so there is nothing to declare
+and nothing to switch on.
+
+Both are `false` unless that group kept exactly **one** die, because a 6 among four dice
+isn't the result of anything on its own:
+
+```ts
+roll('3d6').dice[0].naturalHigh //   always false — three dice counted
+roll('4d6kh1').dice[0].naturalHigh // true if the kept die is a 6
+```
+
+When a roll mixes dice, each group answers for itself — the library never picks one to
+speak for the whole roll, because which die decides a roll is yours to know:
+
+```ts
+const r = roll('1d20+1d4')
+r.dice[0].naturalHigh // the d20
+r.dice[1].naturalHigh // the d4
+```
 
 ## `parseFormula(text, options?)`
 
@@ -288,21 +308,21 @@ group.results.forEach((value, i) => {
 If two dropped dice show the same number, exactly one of them is marked as kept — the
 flags always match the real count.
 
-## `d20Group(result)`
+## `soleDieGroup(result)`
 
-Finds the d20 in a result, when there's exactly one.
+Finds the dice in a result, when the roll used only one kind of die.
 
 ```ts
-import { roll, d20Group } from '@openfray/dice'
+import { roll, soleDieGroup } from '@openfray/dice'
 
-d20Group(roll('1d20+7')) // the d20's group
-d20Group(roll('2d6')) // undefined — no d20
-d20Group(roll('1d20+1d20')) // undefined — more than one
+soleDieGroup(roll('1d20+7')) // the d20's group — the +7 is not dice
+soleDieGroup(roll('2d6+3')) //  the 2d6 group
+soleDieGroup(roll('1d20+1d6')) // undefined — two kinds of die
 ```
 
-Useful when you want to display the d20 by itself — big, in the middle of the screen —
-with the modifiers listed separately. It returns `undefined` rather than guessing when
-there's no single obvious die to show.
+Useful when you want to show the dice by themselves — large, in the middle of the screen —
+with the plain numbers listed beside them. It returns `undefined` rather than guessing when
+a roll mixes kinds of die, since only you know which of them is the one that matters.
 
 ## Testing your own code
 

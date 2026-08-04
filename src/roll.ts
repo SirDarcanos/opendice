@@ -29,6 +29,15 @@ export interface DieGroup {
   kept: number[]
   /** This group's signed contribution to the total. */
   total: number
+  /**
+   * The one die this group kept showed its highest face — `sides` on a `d{sides}`.
+   * A fact about the die and nothing more: whether that matters is yours to decide.
+   * False unless the group kept exactly one die, since a 20 among four dice is not
+   * the result of anything on its own.
+   */
+  naturalHigh: boolean
+  /** The one die this group kept came up 1, on the same terms. */
+  naturalLow: boolean
 }
 
 export interface RollResult {
@@ -43,14 +52,6 @@ export interface RollResult {
    */
   modifiers: number[]
   total: number
-  /**
-   * The kept d20 showed its highest face. A fact about the dice, not a ruling: whether
-   * it means a critical hit, an automatic success, or nothing at all is the caller's
-   * to decide. Only meaningful for a single kept d20, and false otherwise.
-   */
-  naturalHigh: boolean
-  /** The kept d20 showed a 1, on the same terms. */
-  naturalLow: boolean
   advantageState: AdvantageState
   /** The formula's trailing tag, when it carried one the caller recognises. */
   tag?: string
@@ -105,7 +106,16 @@ function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
   for (let i = 0; i < term.count; i++) results.push(rollDie(term.sides, rand))
   const kept = keptDice(results, term.keep)
   const sum = kept.reduce((a, b) => a + b, 0)
-  return { sides: term.sides, sign: term.sign, results, kept, total: term.sign * sum }
+  const sole = kept.length === 1 ? kept[0] : undefined
+  return {
+    sides: term.sides,
+    sign: term.sign,
+    results,
+    kept,
+    total: term.sign * sum,
+    naturalHigh: sole === term.sides,
+    naturalLow: sole === 1,
+  }
 }
 
 /**
@@ -123,20 +133,13 @@ export function keptFlags(group: DieGroup): boolean[] {
   })
 }
 
-/** The d20 group behind a roll, when there is exactly one — what the UI shows raw. */
-export function d20Group(result: RollResult): DieGroup | undefined {
-  const d20s = result.dice.filter((g) => g.sides === 20)
-  return d20s.length === 1 ? d20s[0] : undefined
-}
-
-/** Natural extremes are only meaningful for a single kept d20. */
-function naturals(dice: DieGroup[]): { naturalHigh: boolean; naturalLow: boolean } {
-  const d20s = dice.filter((g) => g.sides === 20)
-  if (d20s.length !== 1 || d20s[0].kept.length !== 1) {
-    return { naturalHigh: false, naturalLow: false }
-  }
-  const value = d20s[0].kept[0]
-  return { naturalHigh: value === 20, naturalLow: value === 1 }
+/**
+ * The one group of dice in a roll, when there is exactly one — the die to show large
+ * while the modifiers sit beside it. Returns nothing rather than guessing when a roll
+ * mixes several kinds of die, since which of them is "the" die is yours to know.
+ */
+export function soleDieGroup(result: RollResult): DieGroup | undefined {
+  return result.dice.length === 1 ? result.dice[0] : undefined
 }
 
 /** Parse, apply adv/dis and bonuses, roll, and report what the dice did. */
@@ -176,7 +179,6 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
     modifier,
     modifiers,
     total,
-    ...naturals(dice),
     advantageState,
     ...(parsed.tag !== undefined ? { tag: parsed.tag } : {}),
   }

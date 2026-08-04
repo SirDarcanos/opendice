@@ -2,7 +2,7 @@
 // Copyright (C) 2026 OpenFray contributors
 
 import { describe, expect, it } from 'vitest'
-import { d20Group, keptFlags, roll } from '../src/roll.ts'
+import { keptFlags, roll, soleDieGroup } from '../src/roll.ts'
 import type { RandomSource } from '../src/rng.ts'
 
 /** Deterministic source: yields the given die faces in order (face f -> f-1 raw). */
@@ -24,32 +24,48 @@ describe('roll', () => {
     expect(r.advantageState).toBe('normal')
   })
 
-  it('reports a natural 20 on the kept d20', () => {
+  it('reports the highest face on the kept die', () => {
     const r = roll('1d20+7', { rand: faceSeq(20) })
     expect(r.total).toBe(27)
-    expect(r.naturalHigh).toBe(true)
-    expect(r.naturalLow).toBe(false)
+    expect(r.dice[0].naturalHigh).toBe(true)
+    expect(r.dice[0].naturalLow).toBe(false)
   })
 
-  it('reports a natural 1 on the kept d20', () => {
+  it('reports the lowest face on the kept die', () => {
     const r = roll('1d20+7', { rand: faceSeq(1) })
-    expect(r.naturalLow).toBe(true)
-    expect(r.naturalHigh).toBe(false)
+    expect(r.dice[0].naturalLow).toBe(true)
+    expect(r.dice[0].naturalHigh).toBe(false)
+  })
+
+  // The highest face of a d78 is 78. Nothing here assumes a twenty-sided die.
+  it('reads the highest face off whatever die was rolled', () => {
+    expect(roll('1d78', { rand: faceSeq(78) }).dice[0].naturalHigh).toBe(true)
+    expect(roll('1d78', { rand: faceSeq(77) }).dice[0].naturalHigh).toBe(false)
+    expect(roll('1d3', { rand: faceSeq(3) }).dice[0].naturalHigh).toBe(true)
+    expect(roll('1d78', { rand: faceSeq(1) }).dice[0].naturalLow).toBe(true)
+  })
+
+  // Which die decides a roll is the caller's business, so each group answers for
+  // itself rather than one of them speaking for the whole roll.
+  it('answers per group when a roll mixes dice', () => {
+    const r = roll('1d20+1d4', { rand: faceSeq(20, 2) })
+    expect(r.dice[0].naturalHigh).toBe(true)
+    expect(r.dice[1].naturalHigh).toBe(false)
   })
 
   // It is a fact about the dice, not a ruling, so nothing has to be declared to get
   // it — there is no roll "kind" to opt in with, and a save reports it as readily as
   // an attack. What it means is the caller's business.
   it('reports it whatever the roll was for, with nothing declared', () => {
-    expect(roll('1d20', { rand: faceSeq(20) }).naturalHigh).toBe(true)
-    expect(roll('1d20+3', { rand: faceSeq(1) }).naturalLow).toBe(true)
+    expect(roll('1d20', { rand: faceSeq(20) }).dice[0].naturalHigh).toBe(true)
+    expect(roll('1d20+3', { rand: faceSeq(1) }).dice[0].naturalLow).toBe(true)
   })
 
   // Advantage keeps one of two, so the kept die still counts.
   it('reads the kept die, not the dropped one', () => {
-    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).naturalHigh).toBe(true)
-    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).naturalLow).toBe(false)
-    expect(roll('1d20dis', { rand: faceSeq(1, 20) }).naturalLow).toBe(true)
+    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).dice[0].naturalHigh).toBe(true)
+    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).dice[0].naturalLow).toBe(false)
+    expect(roll('1d20dis', { rand: faceSeq(1, 20) }).dice[0].naturalLow).toBe(true)
   })
 
   it('keeps the highest on advantage', () => {
@@ -105,10 +121,11 @@ describe('roll', () => {
     expect(r.total).toBe(8)
   })
 
-  it('reports no natural extreme on multi-die or non-d20 rolls', () => {
-    expect(roll('2d20', { rand: faceSeq(20, 20) }).naturalHigh).toBe(false)
-    expect(roll('1d6', { rand: faceSeq(1) }).naturalLow).toBe(false)
-    expect(roll('1d78', { rand: faceSeq(78) }).naturalHigh).toBe(false)
+  it('reports nothing when a group kept more than one die', () => {
+    expect(roll('2d20', { rand: faceSeq(20, 20) }).dice[0].naturalHigh).toBe(false)
+    expect(roll('3d6', { rand: faceSeq(1, 1, 1) }).dice[0].naturalLow).toBe(false)
+    // Keeping one of several still counts — it is the kept die that is read.
+    expect(roll('4d6kh1', { rand: faceSeq(1, 6, 2, 3) }).dice[0].naturalHigh).toBe(true)
   })
 
   it('applies advantage from context to a plain d20', () => {
@@ -161,13 +178,16 @@ describe('keptFlags', () => {
   })
 })
 
-describe('d20Group', () => {
-  it('finds the one d20 group behind a roll', () => {
-    const r = roll('1d20+5', { rand: faceSeq(11) })
-    expect(d20Group(r)?.results).toEqual([11])
+describe('soleDieGroup', () => {
+  it('finds the one group of dice behind a roll', () => {
+    expect(soleDieGroup(roll('1d20+5', { rand: faceSeq(11) }))?.results).toEqual([11])
   })
 
-  it('gives nothing when the roll has no single d20 to show', () => {
-    expect(d20Group(roll('2d6+3', { rand: faceSeq(2, 4) }))).toBeUndefined()
+  it('counts groups, not dice — flat modifiers are not a group', () => {
+    expect(soleDieGroup(roll('2d6+3', { rand: faceSeq(2, 4) }))?.results).toEqual([2, 4])
+  })
+
+  it('gives nothing rather than guessing when a roll mixes kinds of die', () => {
+    expect(soleDieGroup(roll('1d20+1d6', { rand: faceSeq(11, 3) }))).toBeUndefined()
   })
 })
