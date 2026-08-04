@@ -153,25 +153,63 @@ describe('limits on what a formula may ask for', () => {
 // An error message is the one place raw input travels back out of this library, and a
 // caller showing one on a page would otherwise be pasting whatever was typed into it.
 describe('quoting bad input back', () => {
-  it('strips anything a formula could not contain', () => {
-    const attempt = () => parseFormula('<img src=x onerror=alert(1)>')
-    expect(attempt).toThrow(/Cannot parse/)
-    expect(attempt).not.toThrow(/<img/)
-    expect(attempt).not.toThrow(/onerror=/)
+  it('never repeats a payload, whichever error it raises', () => {
+    for (const attempt of [
+      () => parseFormula('<img src=x onerror=alert(1)>'),
+      () => parseFormula('2d6*<script>'),
+      () => parseFormula("1d20'; DROP TABLE rolls"),
+    ]) {
+      expect(attempt).toThrow()
+      expect(attempt).not.toThrow(/<img|<script|onerror|DROP/)
+    }
   })
 
   it('still shows enough of a typo to find it', () => {
-    expect(() => parseFormula('2d6 + x')).toThrow(/x/)
-    expect(() => parseFormula('1d6*2')).toThrow(/1d6\?2/)
+    expect(() => parseFormula('2d6 + x')).toThrow(/2d6 \+ x/)
+    expect(() => parseFormula('2d6 + x')).toThrow(/near "\+x"/)
+    expect(() => parseFormula('1d6dd2')).toThrow(/near "dd2"/)
   })
 
   it('quotes a bounded amount however long the input', () => {
-    try {
-      parseFormula('<'.repeat(900))
-      expect.unreachable()
-    } catch (e) {
-      expect((e as Error).message.length).toBeLessThan(140)
+    for (const input of ['<'.repeat(900), '1d6+'.repeat(200) + 'x']) {
+      try {
+        parseFormula(input)
+        expect.unreachable()
+      } catch (e) {
+        expect((e as Error).message.length).toBeLessThan(140)
+      }
     }
+  })
+})
+
+// Whitespace is stripped before a formula is read but `source` keeps it verbatim, so
+// these used to ride through into `RollResult.formula` — and a newline there forges a
+// line in whatever log or CSV row the caller writes the roll to.
+describe('characters a formula may contain', () => {
+  it('refuses whitespace that is not a plain space', () => {
+    for (const c of ['\t', '\n', '\r', '\v', '\f', ' ', ' ', ' ', '　']) {
+      expect(() => parseFormula(`1${c}d20`)).toThrow(/may only contain/)
+    }
+  })
+
+  it('refuses invisible characters', () => {
+    expect(() => parseFormula('1﻿d20')).toThrow(/U\+FEFF/)
+    expect(() => parseFormula('1 d20')).toThrow(/may only contain/)
+  })
+
+  // U+212A lowercases to a plain "k", so `4d6Kh3` parsed and left the sign in `formula`.
+  it('refuses a letter that only looks like one it uses', () => {
+    expect(() => parseFormula('4d6Kh3')).toThrow(/U\+212A/)
+  })
+
+  it('still takes ordinary spacing and capitals', () => {
+    expect(parseFormula('2D6 + 3').terms).toHaveLength(2)
+    expect(parseFormula('  1d20adv  ').source).toBe('1d20adv')
+  })
+
+  it('says which character it refused without repeating it', () => {
+    expect(() => parseFormula('1d6*2')).toThrow(/U\+002A/)
+    expect(() => parseFormula('1d6*2')).not.toThrow(/\*/)
   })
 })
 

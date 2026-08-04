@@ -25,6 +25,13 @@ the next release is a major version.
   otherwise supply the `rand` source for a roll that passed none, force advantage, add
   bonuses, or forge a `tag` on the result — with the roll reporting all of it as fact.
 - Parsing no longer slows down quadratically on a formula padded with whitespace.
+- A formula may only contain letters, digits, spaces, `+`, `-` and `!`. Whitespace is
+  stripped before a formula is read but `formula` keeps the text verbatim, so a tab, a line
+  break, a non-breaking space, U+2028 or a zero-width space all used to ride through into
+  `RollResult.formula` — and a line break there forges an extra line in whatever log or CSV
+  row the caller writes the roll to, which is the one artifact this package exists to make
+  trustworthy. Twenty-five code points could do it, U+212A among them: it lowercases to a
+  plain `k`, so `4d6Kh3` parsed and left the sign in `formula`.
 - An error no longer repeats the input word for word. `roll('<img src=x onerror=…>')` threw
   an `Error` whose message carried that markup verbatim and twice — and a caller putting the
   message on a page, which is what an error about typed input is for, would have put the

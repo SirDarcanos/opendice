@@ -296,22 +296,47 @@ roll('1d20+5')
 roll('1d20', { bonuses: [5] })
 ```
 
-## Showing an error to someone
+## What a formula may be written with
 
-Every error here quotes the text it could not read, so you can show the person what went
-wrong. What it quotes is shortened, and anything a formula could not contain is replaced
-with a `?`:
+Letters, digits, `+`, `-`, `!` and ordinary spaces. Nothing else — not a tab, not a line
+break, not one of the many other spaces Unicode has:
 
 ```ts
-roll('1d6*2') // Error: Cannot parse "1d6?2" near "?2"
+roll('2D6 + 3') // fine — spaces and capitals both
+roll('1d\n20') //  throws an error
+roll('1d6*2') //   throws an error
 ```
 
-That is deliberate. If a formula arrives from a text box on a web page and the error goes
-back onto that page, an error repeating the input word for word would put whatever was
-typed — markup and all — straight into your page. Nothing a real formula says is lost,
-because a formula cannot contain those characters in the first place.
+Refusing them matters because `result.formula` gives you back the text you passed, exactly
+as you passed it. A line break inside it would survive into that field, and from there into
+whatever you write the roll to:
 
-This makes the message safer to show, not safe: **escape anything you put on a page**, from
+```
+mallory rolled 1d
+20 = 5
+```
+
+One roll, two lines in the log — and a log nobody can trust is the opposite of what this
+package is for. The same goes for a CSV row, or a record in a database. Refusing the
+character up front means `formula` is always a single line of plain text.
+
+That also rules out characters that merely _look_ like the ones a formula uses: `4d6Kh3`
+written with a Kelvin sign is refused rather than quietly read as `4d6kh3`.
+
+## Showing an error to someone
+
+Every error quotes the text it could not read, shortened, so you can show the person what
+went wrong:
+
+```ts
+roll('2d6 + x') // Error: Cannot parse "2d6 + x" near "+x"
+roll('1d6*2') //   Error: A dice formula may only contain letters, digits, spaces, "+", "-" and "!", but this one has U+002A
+```
+
+A character it won't accept is named by its code rather than repeated, so an error can
+never carry a payload back to wherever you display it.
+
+That makes the message safer to show, not safe: **escape anything you put on a page**, from
 here or anywhere else.
 
 ## `parseFormula(text, options?)`

@@ -72,6 +72,11 @@ explicitly in the pull request.
 - **A die explodes at most 100 times**, so `results` can hold 101 entries — the first roll
   plus 100 explosions. A die of fewer than two sides never explodes. Both exist so a loaded
   `RandomSource` cannot hang the process — not because a fair die might reach them.
+- **`source` is the caller's text, kept verbatim, so the parser polices what may be in it.**
+  Whitespace is stripped before a formula is read, which once let a tab or a line break ride
+  through into `RollResult.formula` and forge a line in a caller's roll log. The character
+  allowlist is what stops that, not the grammar — widening it widens what a roll log can be
+  made to say.
 - **A formula is untrusted input, and every part of it that drives work is bounded**: 1000
   dice per roll counting bonuses, 2³² sides per die, 1000 characters per formula. Each was
   an unbounded loop or allocation before. The sides bound is not a taste call — above 2³²

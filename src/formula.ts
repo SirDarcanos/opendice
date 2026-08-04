@@ -41,6 +41,9 @@ export const MAX_EXPLOSIONS = 100
 /** Characters a formula can legitimately contain; everything else is not one. */
 const FORMULA_CHARACTERS = /[^a-z0-9+\-! ]/gi
 
+/** The first character of a formula that is not one of those, if there is one. */
+const FORBIDDEN_CHARACTER = /[^a-z0-9+\-! ]/i
+
 export interface DiceTerm {
   kind: 'dice'
   sign: 1 | -1
@@ -168,6 +171,18 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   if (source.length > MAX_FORMULA_LENGTH) {
     throw new Error(
       `Dice formula is too long: ${source.length} characters, the limit is ${MAX_FORMULA_LENGTH}`,
+    )
+  }
+  // Only what a formula is written with. The parser strips whitespace before reading a
+  // formula but `source` keeps it verbatim, so without this a tab, a newline or a
+  // zero-width space rides through into `RollResult.formula` — and a newline there
+  // forges a second line in whatever log or row the caller writes the roll to. The
+  // Kelvin sign gets in the same way, by lowercasing to a plain `k`.
+  const stray = FORBIDDEN_CHARACTER.exec(source)
+  if (stray) {
+    const point = stray[0].codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')
+    throw new Error(
+      `A dice formula may only contain letters, digits, spaces, "+", "-" and "!", but this one has U+${point}`,
     )
   }
   let expr = source.toLowerCase()
