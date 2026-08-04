@@ -29,12 +29,21 @@ export const MAX_SIDES = UINT32_RANGE
 const MAX_REDRAWS = 1000
 
 /**
+ * The platform CSPRNG's own function, taken once as this module loads. Looked up on every
+ * call instead, `crypto.getRandomValues` can be replaced by anything else sharing the page
+ * — an analytics tag, a dependency further down the bundle — and every roll after that is
+ * theirs, reported by a roll log that still looks honest. Taking it here closes that
+ * window. It cannot close the one before this module loads, and nothing in JavaScript can.
+ */
+const getRandomValues = crypto.getRandomValues.bind(crypto)
+
+/**
  * The platform CSPRNG — `crypto.getRandomValues`, not `Math.random`, whose quality the
  * spec allows to vary across engines. Available in browsers and in Node 19 and later.
  */
 export const cryptoRandom: RandomSource = () => {
   const buf = new Uint32Array(1)
-  crypto.getRandomValues(buf)
+  getRandomValues(buf)
   return buf[0]
 }
 
@@ -45,8 +54,12 @@ export const cryptoRandom: RandomSource = () => {
  * die — never derive several dice from one number.
  */
 export function rollDie(sides: number, rand: RandomSource = cryptoRandom): number {
-  if (!Number.isInteger(sides) || sides < 1 || sides > MAX_SIDES) {
-    throw new Error(`rollDie: sides must be a whole number from 1 to ${MAX_SIDES}, got ${sides}`)
+  if (typeof sides !== 'number' || !Number.isInteger(sides) || sides < 1 || sides > MAX_SIDES) {
+    // TypeScript does not stop a JavaScript caller passing text here, and this message is
+    // as likely to be shown to someone as any other. A number describes itself harmlessly;
+    // anything else is named by its type rather than repeated.
+    const got = typeof sides === 'number' ? String(sides) : typeof sides
+    throw new Error(`rollDie: sides must be a whole number from 1 to ${MAX_SIDES}, got ${got}`)
   }
   // Largest multiple of `sides` that fits in the uint32 range; reject at or above it.
   const ceiling = Math.floor(UINT32_RANGE / sides) * sides
