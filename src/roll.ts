@@ -13,6 +13,8 @@
 
 import { cryptoRandom, rollDie, type RandomSource } from './rng.ts'
 import {
+  assertDiceLimit,
+  ownProperties,
   parseFormula,
   type AdvantageState,
   type DiceTerm,
@@ -55,10 +57,15 @@ export interface RollContext {
   advantage?: AdvantageState
   /** Extra terms to add: plain numbers, or formula fragments like `'1d4'`. */
   bonuses?: (number | string)[]
-  /** Injectable randomness for tests; defaults to the CSPRNG. */
+  /**
+   * Injectable randomness for tests; defaults to the CSPRNG. A result records what the
+   * dice showed and never where the numbers came from, so a rigged source produces a
+   * result identical to a fair one: pass only a source you trust, and never one a user
+   * of your program can choose.
+   */
   rand?: RandomSource
   /** Trailing words to accept as a tag — see `ParseOptions`. */
-  tags?: Iterable<string>
+  tags?: Iterable<string> & object
 }
 
 /** Apply adv/dis to the first plain d20 term (roll two, keep highest/lowest). */
@@ -69,12 +76,12 @@ function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'):
       return t
     }
     applied = true
-    return {
+    return ownProperties<DiceTerm>({
       ...t,
       count: 2,
       keep: { mode: advantage === 'advantage' ? 'kh' : 'kl', n: 1 },
       advantage,
-    }
+    })
   })
 }
 
@@ -156,14 +163,16 @@ export function soleDieGroup(result: RollResult): DieGroup | undefined {
 
 /** Parse, apply adv/dis and bonuses, roll, and report what the dice did. */
 export function roll(formula: string, ctx: RollContext = {}): RollResult {
-  const rand = ctx.rand ?? cryptoRandom
-  const parsed = parseFormula(formula, { tags: ctx.tags })
+  const options = ownProperties(ctx)
+  const rand = options.rand ?? cryptoRandom
+  const parsed = parseFormula(formula, { tags: options.tags })
   let terms = parsed.terms
-  if (ctx.advantage && ctx.advantage !== 'normal') {
-    terms = applyAdvantage(terms, ctx.advantage)
+  if (options.advantage && options.advantage !== 'normal') {
+    terms = applyAdvantage(terms, options.advantage)
   }
-  if (ctx.bonuses && ctx.bonuses.length > 0) {
-    terms = [...terms, ...bonusTerms(ctx.bonuses)]
+  if (options.bonuses && options.bonuses.length > 0) {
+    terms = [...terms, ...bonusTerms(options.bonuses)]
+    assertDiceLimit(terms)
   }
 
   const dice: DieGroup[] = []
@@ -185,7 +194,7 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
     dice.push(group)
   }
 
-  return {
+  return ownProperties({
     formula: parsed.source,
     dice,
     modifier,
@@ -193,5 +202,5 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
     total,
     advantageState,
     ...(parsed.tag !== undefined ? { tag: parsed.tag } : {}),
-  }
+  })
 }

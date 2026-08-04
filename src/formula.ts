@@ -18,7 +18,19 @@
  * other stray token, so a typo is never silently swallowed as a tag.
  */
 
+import { MAX_SIDES } from './rng.ts'
+
 export type AdvantageState = 'normal' | 'advantage' | 'disadvantage'
+
+/** Longest formula accepted. A formula this long is generated, not typed. */
+const MAX_FORMULA_LENGTH = 1000
+
+/**
+ * Most dice one roll may ask for, counting every term. Rolling is one draw per die, so
+ * without a ceiling `99999999d6` is a request to hang the process — and a formula is
+ * exactly the kind of thing that arrives from somewhere untrusted.
+ */
+export const MAX_DICE = 1000
 
 export interface DiceTerm {
   kind: 'dice'
@@ -52,8 +64,29 @@ export interface ParseOptions {
    * Trailing words to accept as a tag, lowercased. Anything else at the end of a
    * formula is a parse error — which is the point: an unrecognised word is far more
    * often a typo than a tag, and swallowing it would hide the mistake.
+   *
+   * `& object` rules out a bare string, which is an iterable of single letters: passing
+   * `'fire'` rather than `['fire']` would otherwise quietly accept `f`, `i`, `r` and `e`.
    */
-  tags?: Iterable<string>
+  tags?: Iterable<string> & object
+}
+
+/**
+ * A copy holding only its own properties. Every optional field here is read by asking
+ * whether it is there, and a plain `{}` inherits from `Object.prototype` — so anything
+ * that can pollute that prototype could otherwise forge a keep rule, a tag, or the
+ * random source itself, and the roll log would report the forgery as fact.
+ */
+export function ownProperties<T extends object>(source: T): T {
+  return Object.assign(Object.create(null), source) as T
+}
+
+/** Throw if these terms together ask for more dice than one roll is allowed. */
+export function assertDiceLimit(terms: Term[]): void {
+  const count = terms.reduce((n, t) => (t.kind === 'dice' ? n + t.count : n), 0)
+  if (count > MAX_DICE) {
+    throw new Error(`A roll may use at most ${MAX_DICE} dice, but this one asks for ${count}`)
+  }
 }
 
 /** A DiceTerm from the parser's captures: blank count → 1; adv/dis desugars to 2 dice keep 1. */
@@ -64,6 +97,9 @@ function diceTerm(
   suffix: string | undefined,
 ): DiceTerm {
   const sides = Number(sidesStr)
+  if (sides < 1 || sides > MAX_SIDES) {
+    throw new Error(`A die must have between 1 and ${MAX_SIDES} sides, but this one has ${sides}`)
+  }
   const term: DiceTerm = {
     kind: 'dice',
     sign,
@@ -85,11 +121,22 @@ function diceTerm(
 /** Parse a dice formula into structured terms. Throws on malformed input. */
 export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   const source = input.trim()
+  if (source.length > MAX_FORMULA_LENGTH) {
+    throw new Error(
+      `Dice formula is too long: ${source.length} characters, the limit is ${MAX_FORMULA_LENGTH}`,
+    )
+  }
   let expr = source.toLowerCase()
-  const tags = opts.tags instanceof Set ? opts.tags : new Set(opts.tags ?? [])
+  const accepted = ownProperties(opts).tags
+  if (typeof accepted === 'string') {
+    throw new Error('Dice tags must be a list of words, not a single string')
+  }
+  const tags = accepted instanceof Set ? accepted : new Set(accepted ?? [])
 
   let tag: string | undefined
-  const tagMatch = /\s+([a-z]+)$/.exec(expr)
+  // One space, not a run of them: `\s+` here backtracks quadratically over long padding,
+  // and the run is stripped a few lines below anyway.
+  const tagMatch = /\s([a-z]+)$/.exec(expr)
   if (tagMatch && tags.has(tagMatch[1])) {
     tag = tagMatch[1]
     expr = expr.slice(0, tagMatch.index)
@@ -115,5 +162,10 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
     pos = re.lastIndex
   }
 
-  return { source, terms, ...(tag !== undefined ? { tag } : {}) }
+  assertDiceLimit(terms)
+  return ownProperties({
+    source,
+    terms: terms.map(ownProperties),
+    ...(tag !== undefined ? { tag } : {}),
+  })
 }

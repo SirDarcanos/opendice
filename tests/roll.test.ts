@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 OpenFray contributors
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { keptFlags, roll, soleDieGroup } from '../src/roll.ts'
 import type { RandomSource } from '../src/rng.ts'
 
@@ -245,5 +245,69 @@ describe('exploding dice', () => {
     expect(roll('1d6!', { rand: faceSeq(6, 4) }).dice[0].naturalHigh).toBe(false)
     // One roll that did not explode still reads normally.
     expect(roll('1d6!', { rand: faceSeq(1) }).dice[0].naturalLow).toBe(true)
+  })
+})
+
+describe('limits', () => {
+  it('counts bonuses towards the dice a roll may use', () => {
+    expect(() => roll('600d6', { bonuses: ['600d6'] })).toThrow(/at most/)
+  })
+
+  it('leaves a roll within the limit alone', () => {
+    expect(roll('500d6', { bonuses: ['500d6'] }).dice).toHaveLength(2)
+  })
+})
+
+// Every option here is read by asking whether it is there, and `roll('1d20')` passes a
+// plain `{}` — which inherits from Object.prototype. Anything able to pollute that could
+// otherwise choose the randomness itself, and the roll log would report the result as fact.
+describe('a polluted Object.prototype', () => {
+  const polluted: string[] = []
+
+  /** Add an inherited property, remembered so afterEach can take it off again. */
+  function pollute(key: string, value: unknown): void {
+    polluted.push(key)
+    Object.defineProperty(Object.prototype, key, { value, configurable: true })
+  }
+
+  afterEach(() => {
+    for (const key of polluted.splice(0)) {
+      delete (Object.prototype as Record<string, unknown>)[key]
+    }
+  })
+
+  it('cannot supply the random source', () => {
+    pollute('rand', () => {
+      throw new Error('the inherited source was used')
+    })
+    expect(() => roll('1d20')).not.toThrow()
+  })
+
+  it('cannot force advantage', () => {
+    pollute('advantage', 'advantage')
+    // faceSeq holds one face, so a second die would throw rather than quietly appear.
+    const r = roll('1d20', { rand: faceSeq(11) })
+    expect(r.dice[0].results).toEqual([11])
+    expect(r.advantageState).toBe('normal')
+  })
+
+  it('cannot add bonuses of its own', () => {
+    pollute('bonuses', [1000])
+    expect(roll('1d20', { rand: faceSeq(11) }).total).toBe(11)
+  })
+
+  it('cannot forge a tag on the result', () => {
+    pollute('tag', 'poisoned')
+    expect(roll('1d6', { rand: faceSeq(3) }).tag).toBeUndefined()
+  })
+
+  it('cannot make a die explode', () => {
+    pollute('explode', true)
+    expect(roll('1d6', { rand: faceSeq(6) }).dice[0].results).toEqual([6])
+  })
+
+  it('cannot drop dice with a keep rule', () => {
+    pollute('keep', { mode: 'kl', n: 1 })
+    expect(roll('4d6', { rand: faceSeq(6, 5, 3, 2) }).dice[0].kept).toEqual([6, 5, 3, 2])
   })
 })

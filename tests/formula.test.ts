@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 OpenFray contributors
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { parseFormula } from '../src/formula.ts'
 
 describe('parseFormula', () => {
@@ -81,6 +81,78 @@ describe('parseFormula', () => {
   it('throws on malformed or unsupported input', () => {
     expect(() => parseFormula('')).toThrow()
     expect(() => parseFormula('nonsense')).toThrow()
+  })
+
+  it('finds a tag however much space precedes it', () => {
+    expect(parseFormula('2d10+8    fire', { tags: ['fire'] }).tag).toBe('fire')
+  })
+
+  it('rejects tags given as a single string rather than a list of words', () => {
+    expect(() => parseFormula('1d6 f', { tags: 'fire' as unknown as string[] })).toThrow()
+  })
+})
+
+// A formula is the one input here that routinely arrives from somewhere untrusted, so
+// every part of it that drives work is bounded. Each of these used to hang the process.
+describe('limits on what a formula may ask for', () => {
+  it('accepts the largest roll it allows', () => {
+    expect(parseFormula('1000d6').terms[0]).toMatchObject({ count: 1000 })
+    expect(parseFormula('1d4294967296').terms[0]).toMatchObject({ sides: 4294967296 })
+  })
+
+  it('rejects more dice than a roll allows, counting every term', () => {
+    expect(() => parseFormula('1001d6')).toThrow(/at most/)
+    expect(() => parseFormula('99999999d20')).toThrow(/at most/)
+    expect(() => parseFormula('600d6+600d6')).toThrow(/at most/)
+  })
+
+  it('rejects a die with more sides than one draw can address', () => {
+    expect(() => parseFormula('1d4294967297')).toThrow(/sides/)
+  })
+
+  it('rejects a die with no sides rather than leaving it to fail at roll time', () => {
+    expect(() => parseFormula('1d0')).toThrow(/sides/)
+  })
+
+  it('rejects a formula too long to have been typed', () => {
+    expect(() => parseFormula('1d6' + ' '.repeat(50_000) + '+1')).toThrow(/too long/)
+  })
+})
+
+// Reading an optional field asks whether it is there, and a plain object inherits from
+// Object.prototype — so anything that can pollute it could otherwise forge parts of a
+// formula nobody wrote.
+describe('a polluted Object.prototype', () => {
+  const polluted: string[] = []
+
+  /** Add an inherited property, remembered so afterEach can take it off again. */
+  function pollute(key: string, value: unknown): void {
+    polluted.push(key)
+    Object.defineProperty(Object.prototype, key, { value, configurable: true })
+  }
+
+  afterEach(() => {
+    for (const key of polluted.splice(0)) {
+      delete (Object.prototype as Record<string, unknown>)[key]
+    }
+  })
+
+  it('cannot supply the tags the caller never accepted', () => {
+    pollute('tags', ['fire'])
+    expect(() => parseFormula('2d10+8 fire')).toThrow()
+  })
+
+  it('cannot forge a tag on the result', () => {
+    pollute('tag', 'poisoned')
+    expect(parseFormula('2d6').tag).toBeUndefined()
+  })
+
+  it('cannot forge a keep rule or an explosion on a term', () => {
+    pollute('keep', { mode: 'kl', n: 1 })
+    pollute('explode', true)
+    const term = parseFormula('4d6').terms[0]
+    expect(term.kind === 'dice' && term.keep).toBeUndefined()
+    expect(term.kind === 'dice' && term.explode).toBeUndefined()
   })
 })
 
