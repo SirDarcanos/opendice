@@ -295,6 +295,17 @@ describe('group multiplier', () => {
 })
 
 describe('limits', () => {
+  // Every entry is parsed before the dice limit can refuse the roll, so the length has
+  // to be bounded on its own.
+  it('refuses more bonuses than a roll may carry', () => {
+    expect(() => roll('1d6', { bonuses: new Array(101).fill(1) })).toThrow(/at most 100 bonuses/)
+  })
+
+  it('carries as many bonuses as it allows', () => {
+    const r = roll('1d6', { rand: faceSeq(3), bonuses: new Array(100).fill(1) })
+    expect(r.total).toBe(103)
+  })
+
   it('counts bonuses towards the dice a roll may use', () => {
     expect(() => roll('600d6', { bonuses: ['600d6'] })).toThrow(/at most/)
   })
