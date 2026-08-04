@@ -87,6 +87,14 @@ describe('parseFormula', () => {
     expect(parseFormula('2d10+8    fire', { tags: ['fire'] }).tag).toBe('fire')
   })
 
+  it('rejects input that is not text at all', () => {
+    expect(() => parseFormula(null as unknown as string)).toThrow(/must be text/)
+    expect(() => parseFormula(12 as unknown as string)).toThrow(/must be text/)
+    expect(() => parseFormula({ toString: () => '1d6' } as unknown as string)).toThrow(
+      /must be text/,
+    )
+  })
+
   it('rejects tags given as a single string rather than a list of words', () => {
     expect(() => parseFormula('1d6 f', { tags: 'fire' as unknown as string[] })).toThrow()
   })

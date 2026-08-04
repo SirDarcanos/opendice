@@ -1,6 +1,6 @@
 {
   "name": "@openfray/dice",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Honest dice for d20 systems: a formula parser and one roll() over a CSPRNG with modulo-bias rejection.",
   "license": "MIT",
   "author": "OpenFray contributors",

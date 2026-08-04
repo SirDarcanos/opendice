@@ -69,6 +69,18 @@ back:
   never comes close; a source that returns one rejected value forever would otherwise spin
   the process to a halt, which it did until it was bounded.
 
+- **The default source is exercised on purpose.** Every other test hands `rollDie` a source
+  of its own, so for a long time the source real callers get was only ever checked for
+  staying in range. Code reading `rand === cryptoRandom` could behave one way under test and
+  another in production and the suite would agree with it — a planted backdoor doing exactly
+  that passed all 109 tests. The chi-square tests over the default source are what close it.
+  They catch a face nudged as often as one draw in a hundred; **they do not catch one in a
+  thousand**, and no test that finishes in a reasonable time will. A change to this file has
+  to be read, not handed to CI.
+- **`crypto.getRandomValues` is taken once, as the module loads.** Looked up per call it can
+  be swapped by anything else sharing the page, and every roll after that is theirs with a
+  roll log that still looks honest. Keep the binding at module scope.
+
 `rand` is the one hole nothing here can close: a `RollResult` records what the dice showed
 and never which source produced it, so a rigged source is indistinguishable from the CSPRNG
 in the output. That is documented rather than fixed — an attestation field would be a claim

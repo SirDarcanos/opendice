@@ -42,8 +42,12 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
+      # Pinned, not `@latest`. This runs in the job holding the OIDC credential, so a
+      # compromised npm release would execute right beside it. The version below is what
+      # `@latest` resolved to when it was pinned, so this is no riskier than it was — it
+      # just stops resolving to whatever is newest at release time. Bump it deliberately.
       - name: Use an npm new enough for trusted publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@12.0.2
 
       - run: npm ci
 

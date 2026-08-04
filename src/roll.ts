@@ -91,6 +91,12 @@ function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'):
   })
 }
 
+/**
+ * Most bonuses one roll may carry. Every entry is parsed before the dice limit can refuse
+ * the roll, so an unbounded list is unbounded work whatever the list adds up to.
+ */
+const MAX_BONUSES = 100
+
 /** Turn extra bonuses (numbers or formula fragments) into additive terms. */
 function bonusTerms(bonuses: (number | string)[]): Term[] {
   return bonuses.flatMap((b) => {
@@ -182,6 +188,11 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
     terms = applyAdvantage(terms, options.advantage)
   }
   if (options.bonuses && options.bonuses.length > 0) {
+    if (options.bonuses.length > MAX_BONUSES) {
+      throw new Error(
+        `A roll may carry at most ${MAX_BONUSES} bonuses, but this one has ${options.bonuses.length}`,
+      )
+    }
     terms = [...terms, ...bonusTerms(options.bonuses)]
     assertRollable(terms)
   }

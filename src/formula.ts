@@ -180,6 +180,9 @@ function diceTerm(
 
 /** Parse a dice formula into structured terms. Throws on malformed input. */
 export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
+  if (typeof input !== 'string') {
+    throw new Error(`A dice formula must be text, not ${typeof input}`)
+  }
   const source = input.trim()
   if (source.length > MAX_FORMULA_LENGTH) {
     throw new Error(

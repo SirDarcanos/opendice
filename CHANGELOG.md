@@ -8,8 +8,16 @@ requests that would.
 
 ## [Unreleased]
 
-Hardening after an adversarial review of the package. Some of it changes the public API, so
-the next release is a major version.
+Nothing yet.
+
+## [1.1.0] — 2026-08-04
+
+Hardening after an adversarial review of the package, and a group multiplier.
+
+Several entries below are marked **Breaking**: they refuse input that 1.0.0 accepted. None
+of it is input a working caller was likely to be sending on purpose, but read those entries
+before upgrading — `tags: 'fire'`, `roll('2+5')`, `1d0`, a formula containing a tab or a
+line break, and a `bonuses` fragment with no dice in it all throw now.
 
 ### Security
 
@@ -32,6 +40,18 @@ the next release is a major version.
   row the caller writes the roll to, which is the one artifact this package exists to make
   trustworthy. Twenty-five code points could do it, U+212A among them: it lowercases to a
   plain `k`, so `4d6Kh3` parsed and left the sign in `formula`.
+- `crypto.getRandomValues` is taken once as the module loads rather than looked up on every
+  call. Anything else sharing the page — an analytics tag, a dependency further down the
+  bundle — could replace it and own every roll from then on, reported by a roll log that
+  still looked honest. This closes the window after load; nothing in JavaScript can close
+  the one before it.
+- `rollDie` names the type of a non-number instead of repeating it. TypeScript says
+  `number`, but a JavaScript caller is not bound by that, and the message is as likely to be
+  shown to someone as any other. `parseFormula` refuses non-text input the same way, rather
+  than failing with `input.trim is not a function`.
+- `bonuses` is capped at 100 entries. Every entry is parsed before the dice limit can refuse
+  the roll, so a million of them burned about 2.4 seconds whatever they added up to.
+- The publish workflow pins npm instead of installing `@latest` beside the OIDC credential.
 - An error no longer repeats the input word for word. `roll('<img src=x onerror=…>')` threw
   an `Error` whose message carried that markup verbatim and twice — and a caller putting the
   message on a page, which is what an error about typed input is for, would have put the
@@ -99,5 +119,6 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/OpenFrayApp/dice/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/OpenFrayApp/dice/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/OpenFrayApp/dice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/OpenFrayApp/dice/releases/tag/v1.0.0
