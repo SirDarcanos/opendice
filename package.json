@@ -46,7 +46,8 @@
     "url": "https://github.com/OpenFrayApp/dice/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
