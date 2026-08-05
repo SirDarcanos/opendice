@@ -1,83 +1,71 @@
 # Guidance for AI agents (and humans)
 
 Read this before writing code here. [`CONTRIBUTING.md`](./CONTRIBUTING.md) covers setup,
-style, tests and releases; this file covers the decisions that are easy to undo by
+style, tests and releases. This file covers the decisions that are easy to undo by
 accident.
 
 ## What this package is
 
 A dice roller. It parses a formula, rolls it fairly, and reports what the dice did.
 
-It is published as `opendice` (MIT) and it is the engine
-[OpenFray](https://openfray.app) rolls on. OpenFray is AGPL; this is not, because the dice
-are not the product and are worth more reusable than protected.
+Published as `opendice` under MIT. It is the engine [OpenFray](https://openfray.app) rolls
+on; OpenFray is AGPL, this is not, because the dice are worth more reusable than protected.
 
-## The line, and why it keeps moving back
+## The line
 
 > **The dice report what happened. The game decides what it means.**
 
-This is the whole design. It is also the thing that erodes, because almost every useful
-addition can be argued for as "just a bit of dice logic".
+Almost every useful addition can be argued for as "just a bit of dice logic", so this
+erodes unless it is defended. Version 1 shipped without `RollKind`
+(`'attack' | 'save' | 'check'`) and `CritRule`, both of which were removed before release.
+Three rules came out of that, each already re-litigated once:
 
-The first version of this package had `RollKind` (`'attack' | 'save' | 'check'`) and
-`CritRule` (including `max-plus-roll`, one table's house rule out of OpenFray's campaign
-settings). Both came out before release. Three rules fell out of that, and each has already
-been re-litigated once:
-
-1. **No roll "kind".** There is no field saying what a roll was _for_. One was proposed as
-   a passthrough label the library never reads — rejected, because a field that is ignored
-   is worse than no field: it looks like it does something, and someone will set it
-   expecting behaviour.
+1. **No roll "kind".** No field says what a roll was for. A passthrough label the library
+   never reads was proposed and rejected: a field that is ignored looks like it does
+   something, and someone will set it expecting behaviour.
 2. **Facts, not rulings.** `naturalHigh` says the kept die showed its top face. It does not
-   say "critical hit", it is not gated behind declaring the roll an attack, and it works on
-   a d78 as readily as a d20. If a proposal needs the library to decide whether something
-   is _good_, it belongs in the caller.
-3. **Labels are the caller's.** `2d10 fire` only parses if the caller passed `fire` in
-   `tags`. The library knows a formula _can_ end in a label and nothing about which are
-   real. An unrecognised word throws rather than being swallowed, because at the end of a
-   formula a stray word is usually a typo.
+   say "critical hit", is not gated behind declaring the roll an attack, and works on a d78
+   as readily as a d20. A proposal that needs the library to decide whether something is
+   _good_ belongs in the caller.
+3. **Labels are the caller's.** `2d10 fire` parses only if the caller passed `fire` in
+   `tags`. An unrecognised word throws rather than being carried, because a stray word at
+   the end of a formula is usually a typo.
 
-Exploding dice (`1d6!`) are in, and are the example of what _does_ belong: a way of rolling
-dice, not a rule about what a roll means.
+Exploding dice (`1d6!`) are in, and are the example of what belongs: a way of rolling dice,
+not a rule about what a roll means.
 
-A group multiplier (`1d6x10`) is in on the same grounds — "roll a d6 and multiply by ten" is
-a procedure, not a ruling. Two things about it were argued and settled, and both will come
-back:
+A group multiplier (`1d6x10`) is in on the same grounds. Two decisions about it were argued
+and settled, and both will come back:
 
-- **Division stays out.** `1d20/3` cannot be answered without a rounding rule, and down, to
-  nearest, or in whose favour are all somebody's house rule. Picking one is the library
-  deciding what a roll means. It also gives up whole-number totals, which the exactness
-  check depends on.
-- **No `*`, and no brackets.** A multiplier binds to one dice group, the way `kh3` does, so
+- **No division.** `1d20/3` needs a rounding rule, and down, to nearest, or in whose favour
+  are all somebody's house rule. It would also give up whole-number totals, which the
+  exactness check depends on.
+- **No `*`, no brackets.** A multiplier binds to one dice group the way `kh3` does, so
   `1d6x10+5` can only be 35. General arithmetic needs precedence, and `1d20+3*2` would be
-  silently wrong for whichever half of callers meant the other reading — silence being the
-  thing this package refuses everywhere else. It would also cost the flat-sum result model
-  that `modifier`, `modifiers` and `DieGroup.sign` are all built on.
+  silently wrong for whichever half of callers meant the other reading. It would also cost
+  the flat-sum result model that `modifier`, `modifiers` and `DieGroup.sign` are built on.
 
 ## The randomness is load-bearing
 
-`src/rng.ts` is the reason anyone would trust this package. Two rules:
+`src/rng.ts` is the reason to trust this package.
 
-- **CSPRNG plus modulo-bias rejection, one draw per die.** Never `Math.random`, never
-  derive several dice from one number, never skip the rejection loop because the skew is
-  small.
-- **Never add "anti-streak" or "feels-fair" logic.** Not as an option, not off by default.
-  Suppressing repeats is more detectably rigged over time than honest clumping, and it
-  would make any record of the rolls a lie.
-- **Every loop that redraws has a bound.** The rejection loop gives up after 1000 rejections
-  in a row and throws. Every die accepts more than half of all draws, so a working source
-  never comes close; a source that returns one rejected value forever would otherwise spin
-  the process to a halt, which it did until it was bounded.
-
-- **The default source is exercised on purpose.** Every other test hands `rollDie` a source
-  of its own, so for a long time the source real callers get was only ever checked for
-  staying in range. Code reading `rand === cryptoRandom` could behave one way under test and
-  another in production and the suite would agree with it — a planted backdoor doing exactly
-  that passed all 109 tests. The chi-square tests over the default source are what close it.
-  They catch a face nudged as often as one draw in a hundred; **they do not catch one in a
-  thousand**, and no test that finishes in a reasonable time will. A change to this file has
-  to be read, not handed to CI.
-- **`crypto.getRandomValues` is taken once, as the module loads.** Looked up per call it can
+- **CSPRNG plus modulo-bias rejection, one draw per die.** Never `Math.random`, never derive
+  several dice from one number, never skip the rejection loop because the skew is small.
+- **Never add "anti-streak" or "feels-fair" logic**, as an option or otherwise. Suppressing
+  repeats is more detectably rigged over time than honest clumping, and it would make any
+  record of the rolls inaccurate.
+- **Every redraw loop has a bound.** The rejection loop throws after 1,000 rejections in a
+  row. Every die accepts more than half of all draws, so a working source never approaches
+  it; a source returning one rejected value forever used to spin the process to a halt.
+- **The default source is exercised on purpose.** Every other test hands `rollDie` its own
+  source, so for a long time the source real callers get was only checked for staying in
+  range. Code reading `rand === cryptoRandom` could behave one way under test and another in
+  production with the suite agreeing — a planted backdoor doing exactly that passed all 109
+  tests. The chi-square tests over the default source close that. They catch a face nudged
+  as often as one draw in a hundred; **they do not catch one in a thousand**, and no test
+  that finishes in reasonable time will. A change to this file has to be read, not handed
+  to CI.
+- **`crypto.getRandomValues` is bound once, as the module loads.** Looked up per call it can
   be swapped by anything else sharing the page, and every roll after that is theirs with a
   roll log that still looks honest. Keep the binding at module scope.
 
@@ -86,62 +74,64 @@ and never which source produced it, so a rigged source is indistinguishable from
 in the output. That is documented rather than fixed — an attestation field would be a claim
 the library cannot check. Callers must not let untrusted code choose `rand`.
 
-A change here can pass every test and still be wrong. If you touch it, reason about it
-explicitly in the pull request.
+A change here can pass every test and still be wrong. Reason about it explicitly in the pull
+request.
 
 ## Things that bite
 
-- **`explode` cannot combine with `kh`/`kl`/`adv`/`dis`.** The grammar treats the suffixes
-  as alternatives, so `4d6kh3!` throws. That is deliberate: "keep the highest three" has no
-  obvious meaning once each die is an open-ended chain. Don't "fix" it without deciding
-  what it should mean.
-- **A die explodes at most 100 times**, so `results` can hold 101 entries — the first roll
-  plus 100 explosions. A die of fewer than two sides never explodes. Both exist so a loaded
-  `RandomSource` cannot hang the process — not because a fair die might reach them.
+- **`explode` cannot combine with `kh`/`kl`/`adv`/`dis`.** The grammar treats the suffixes as
+  alternatives, so `4d6kh3!` throws. Do not "fix" it without first deciding what "keep the
+  highest three" should mean when each die is an open-ended chain.
+- **A die explodes at most 100 times**, so `results` can hold 101 entries. A die of fewer
+  than two sides never explodes. Both bounds exist so a loaded `RandomSource` cannot hang the
+  process, not because a fair die might reach them.
 - **`source` is the caller's text, kept verbatim, so the parser polices what may be in it.**
-  Whitespace is stripped before a formula is read, which once let a tab or a line break ride
+  Whitespace is stripped before a formula is read, which once let a tab or a line break
   through into `RollResult.formula` and forge a line in a caller's roll log. The character
   allowlist is what stops that, not the grammar — widening it widens what a roll log can be
   made to say.
-- **A formula is untrusted input, and every part of it that drives work is bounded**: 1000
-  dice per roll counting bonuses, 2³² sides per die, 1000 characters per formula. Each was
-  an unbounded loop or allocation before. The sides bound is not a taste call — above 2³²
-  the rejection ceiling rounds down to zero and `rollDie` never returns.
+- **A formula is untrusted input, and everything in it that drives work is bounded**: 1,000
+  dice per roll including bonuses, 2³² sides per die, 1,000 characters per formula. Each was
+  an unbounded loop or allocation before. The sides bound is not a taste call — above 2³² the
+  rejection ceiling rounds down to zero and `rollDie` never returns.
 - **Optional fields are read through `ownProperties`.** Absence is how `keep`, `explode`,
   `advantage`, `tag` and every `RollContext` option are read, and a plain `{}` inherits from
-  `Object.prototype` — so without it, anything able to pollute that prototype could pick the
+  `Object.prototype`. Without it, anything able to pollute that prototype could pick the
   random source or forge a tag, and the roll log would report the forgery as fact. Anything
-  the library both creates and later reads an optional field from must go through it.
+  the library both creates and later reads an optional field from goes through it.
 - **`results` is flat.** An exploding group's `results` holds every roll it made, so it can
-  be longer than the die count. The chain is still readable: a roll equal to `sides` is
-  what caused the next one.
+  be longer than the die count. A roll equal to `sides` is what caused the next one.
 - **`soleDieGroup` counts groups, not dice.** `2d6+3` has one group; `1d20+1d6` has two and
   returns nothing.
 
 ## Verify prose the way you verify code
 
-The most common defect in this repo's history is not a bug — it is a **README sentence
-that was never run**. Already caught: a `sign` field documented on a type that has none, a
-sample result claiming a natural 20 for a roll that kept a 17, and a bullet saying the
-library "doesn't decide advantage for you" directly above the option that decides it.
+The most common defect in this repo's history is a README sentence that was never run.
+Already caught: a `sign` field documented on a type that has none, a sample result claiming
+a natural 20 for a roll that kept a 17, and a bullet saying the library "doesn't decide
+advantage for you" directly above the option that decides it.
 
-So: after changing behaviour or documentation, **run every example against the built
-package**, not against the source.
+After changing behaviour or documentation, run every example against the built package, not
+against the source:
 
 ```bash
 npm run build
 node --input-type=module -e "import { roll } from './dist/index.js'; …"
 ```
 
-Claims about behaviour deserve the same treatment as code blocks. If you cannot run it,
-don't assert it.
+Claims about behaviour get the same treatment as code blocks. If you cannot run it, do not
+assert it.
 
 ## Writing style
 
 The README is for someone who has never used this and is not necessarily a programmer by
 trade. Plain language, short sentences, every term explained before it is used. Jargon
 dropped in without explanation is a bug — `parseFormula` and "exploding dice" both shipped
-that way once and had to be fixed.
+that way once.
 
-Keep the game framing out of it too. No players, characters, spells or damage types: this
-is a dice library, and someone may well be using it for something that is not a game.
+It is reference, not narrative: say what a function does, what it returns, and what it
+refuses. A reason earns its place when it tells the reader what to do differently;
+otherwise it is padding.
+
+Keep the game framing out of it. No players, characters, spells or damage types — this is a
+dice library, and it may well be rolling for something that is not a game.

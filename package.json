@@ -1,7 +1,7 @@
 {
   "name": "opendice",
   "version": "1.1.0",
-  "description": "Honest dice for d20 systems: a formula parser and one roll() over a CSPRNG with modulo-bias rejection.",
+  "description": "Roll dice in JavaScript or TypeScript. A formula parser and one roll() over a CSPRNG with modulo-bias rejection.",
   "license": "MIT",
   "author": "Nicola Mustone",
   "type": "module",

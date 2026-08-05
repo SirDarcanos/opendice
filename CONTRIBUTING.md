@@ -1,14 +1,13 @@
 # Contributing
 
-Thanks for wanting to help. Bug reports, ideas and pull requests are all welcome.
+Bug reports, ideas and pull requests are welcome.
 
 ## The one rule
 
 **This library rolls dice and reports what happened. It does not know your game's rules.**
 
-Every contribution is measured against that. A change is in scope if it is about _dice_ —
-a way of rolling them, or a fact about what they landed on. It is out of scope if it
-decides what a result _means_.
+A change is in scope if it is about dice — a way of rolling them, or a fact about what they
+landed on. It is out of scope if it decides what a result means.
 
 | In scope                                           | Out of scope                                       |
 | -------------------------------------------------- | -------------------------------------------------- |
@@ -16,41 +15,37 @@ decides what a result _means_.
 | Reporting what the dice showed                     | Deciding whether that is good or bad               |
 | Making a result easier to display                  | Character sheets, conditions, spells, initiative   |
 
-Earlier versions had roll "kinds" and critical-hit rules in them. They came out before the
-first release, because a dice library that knows what a saving throw is has stopped being a
-dice library. Please don't put them back.
+Roll "kinds" and critical-hit rules were both in earlier versions and were removed before
+the first release. Please do not put them back.
 
-If you think something is a borderline case, open an issue before writing code — it is much
-easier to talk about than to un-merge.
+For a borderline case, open an issue before writing code.
 
-## Getting set up
+## Setup
 
-You need Node 20 or newer.
+Node 20 or newer.
 
 ```bash
 npm install
 npm test
 ```
 
-Other things you can run:
+| Command                  | What it does       |
+| ------------------------ | ------------------ |
+| `npm test`               | Run the suite      |
+| `npm run typecheck`      | `tsc`, no output   |
+| `npm run build`          | Compile to `dist/` |
+| `npx prettier --write .` | Format everything  |
 
-```bash
-npm run typecheck   # tsc, no output
-npm run build       # compile to dist/
-npx prettier --write .
-```
-
-CI runs all four on every pull request, so run them before you push.
+CI runs all four on every pull request. Run them before pushing.
 
 ## Writing code
 
-- **Every named function opens with a one-line comment saying what it does.** In
-  TypeScript that means a one-line JSDoc, so editors show it on hover.
-- **No other comments unless the code cannot say it itself.** A non-obvious _why_, a
-  gotcha, or a reason a thing is deliberately absent earns a comment. Narrating the next
-  line does not.
+- **Every named function opens with a one-line JSDoc** saying what it does, so editors show
+  it on hover.
+- **No other comments unless the code cannot say it itself.** A non-obvious why, a gotcha,
+  or a reason something is deliberately absent earns one. Narrating the next line does not.
 - **Match the file you are in** — naming, style, comment density.
-- Prettier decides formatting. Don't hand-align anything.
+- Prettier decides formatting. Do not hand-align anything.
 
 ## Tests
 
@@ -68,23 +63,22 @@ const faces =
 roll('2d6+3', { rand: faces(5, 3) }).total // 11, every time
 ```
 
-The randomness itself is the one place a change can pass its tests and still be wrong.
-If you touch `rng.ts`, say in the pull request why the change keeps every face equally
-likely.
+The randomness is the one place a change can pass its tests and still be wrong. If you
+touch `rng.ts`, say in the pull request why the change keeps every face equally likely.
+[`AGENTS.md`](./AGENTS.md) explains what the tests there do and do not catch.
 
-## The README is documentation, not decoration
+## Documentation
 
-If you change behaviour, change the README in the same pull request — and **run the
-examples you write**. Several errors have already been caught that way: a field that did
-not exist, and a sample result that could not have happened. An example nobody ran is a
-guess.
+If you change behaviour, change the README in the same pull request, and **run the examples
+you write** against the built package. Errors caught that way already: a field that did not
+exist, and a sample result that could not have happened.
 
 ## Commits
 
 - One concern per commit.
-- The subject line says what changed, in the imperative: `Add exploding dice`.
-- The body explains _why_, in prose.
-- **Sign off** with `git commit -s`. That adds a `Signed-off-by:` line certifying you have
+- Subject line in the imperative: `Add exploding dice`.
+- The body explains why.
+- **Sign off** with `git commit -s`, which adds a `Signed-off-by:` line certifying you have
   the right to submit the code under this licence. There is no CLA.
 
 ## Releases
