@@ -322,7 +322,7 @@ roll('1d6*2') //   throws
 This matters because `result.formula` returns the text you passed, verbatim. A line break
 would survive into that field and from there into whatever the roll is written to:
 
-```
+```text
 mallory rolled 1d
 20 = 5
 ```

@@ -6,19 +6,23 @@ Notable changes to `opendice`. The format follows
 public API is a major version, and the `breaking` label on GitHub marks issues and pull
 requests that would.
 
+## The name
+
+This package was `@openfray/dice` up to and including 1.1.0, and is `opendice` from 1.1.0
+onward — `opendice@1.1.0` carries the same code as `@openfray/dice@1.1.0`. The old name
+stays on npm, deprecated, so nothing that depends on it breaks.
+
+```bash
+npm uninstall @openfray/dice && npm install opendice
+```
+
+Every import changes with it: `from '@openfray/dice'` becomes `from 'opendice'`.
+
+A rename is not a version, so it has no entry below.
+
 ## [Unreleased]
 
-### Changed
-
-- **Renamed from `@openfray/dice` to `opendice`.** Same code, same API, same version
-  line. The package was never about one product, and the scope said otherwise. The old
-  name stays published and is deprecated, so nothing breaks; update when it suits you.
-
-  ```bash
-  npm uninstall @openfray/dice && npm install opendice
-  ```
-
-  Every import changes with it: `from '@openfray/dice'` becomes `from 'opendice'`.
+Nothing yet.
 
 ## [1.1.0] — 2026-08-04
 
