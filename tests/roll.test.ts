@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 OpenFray contributors
+// Copyright (C) 2026 Nicola Mustone
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { keptFlags, roll, soleDieGroup } from '../src/roll.ts'

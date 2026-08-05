@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C) 2026 OpenFray contributors
+// Copyright (C) 2026 Nicola Mustone
 
 import { describe, expect, it } from 'vitest'
 import { rollDie, type RandomSource } from '../src/rng.ts'

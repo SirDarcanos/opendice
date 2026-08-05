@@ -14,7 +14,7 @@
 # or rotate, and provenance is attached automatically.
 #
 # Configured at npmjs.com under the package's Settings → Trusted Publisher:
-#   repository  OpenFrayApp/dice
+#   repository  SirDarcanos/opendice
 #   workflow    publish.yml
 name: Publish to npm
 

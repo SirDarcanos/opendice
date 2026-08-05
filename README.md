@@ -1,6 +1,6 @@
-# @openfray/dice
+# opendice
 
-[![NPM](https://nodei.co/npm/@openfray/dice.svg?style=shields&data=n,v,u,d&color=blue)](https://www.npmjs.com/package/@openfray/dice)
+[![NPM](https://nodei.co/npm/opendice.svg?style=shields&data=n,v,u,d&color=blue)](https://www.npmjs.com/package/opendice)
 
 Roll dice in JavaScript or TypeScript. You write `2d6+3`, you get a number back — plus
 every die that was rolled, so you can show your work.
@@ -11,13 +11,13 @@ here ever nudges a result.
 MIT licence · no dependencies · works in a browser and in Node 20 or newer
 
 ```bash
-npm install @openfray/dice
+npm install opendice
 ```
 
 ## Your first roll
 
 ```ts
-import { roll } from '@openfray/dice'
+import { roll } from 'opendice'
 
 const result = roll('2d6+3')
 
@@ -392,7 +392,7 @@ Reads a formula and tells you what it means — **without rolling anything**.
 check a formula before using it. The usual case is validating something a person typed:
 
 ```ts
-import { parseFormula } from '@openfray/dice'
+import { parseFormula } from 'opendice'
 
 function isValid(text: string): boolean {
   try {
@@ -438,7 +438,7 @@ parseFormula('2d6 fire', { tags: ['fire'] }).tag // 'fire'
 Rolls a single die. No formula, no parsing, no result object — just a number.
 
 ```ts
-import { rollDie } from '@openfray/dice'
+import { rollDie } from 'opendice'
 
 rollDie(20) // a number from 1 to 20
 rollDie(6) // a number from 1 to 6
@@ -456,7 +456,7 @@ It throws if `sides` isn't a whole number from 1 to 4,294,967,296 — see
 The raw random number everything else is built on: an integer from 0 to 4,294,967,295.
 
 ```ts
-import { cryptoRandom } from '@openfray/dice'
+import { cryptoRandom } from 'opendice'
 
 cryptoRandom() // 2847193056
 ```
@@ -470,7 +470,7 @@ When dice are thrown away, this tells you **which ones**, in the same order they
 rolled.
 
 ```ts
-import { roll, keptFlags } from '@openfray/dice'
+import { roll, keptFlags } from 'opendice'
 
 const r = roll('1d20adv') // rolled [4, 17], kept [17]
 keptFlags(r.dice[0]) // [false, true]
@@ -498,7 +498,7 @@ flags always match the real count.
 Finds the dice in a result, when the roll used only one kind of die.
 
 ```ts
-import { roll, soleDieGroup } from '@openfray/dice'
+import { roll, soleDieGroup } from 'opendice'
 
 soleDieGroup(roll('1d20+7')) // the d20's group — the +7 is not dice
 soleDieGroup(roll('2d6+3')) //  the 2d6 group

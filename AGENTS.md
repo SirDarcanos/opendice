@@ -8,7 +8,7 @@ accident.
 
 A dice roller. It parses a formula, rolls it fairly, and reports what the dice did.
 
-It is published as `@openfray/dice` (MIT) and it is the engine
+It is published as `opendice` (MIT) and it is the engine
 [OpenFray](https://openfray.app) rolls on. OpenFray is AGPL; this is not, because the dice
 are not the product and are worth more reusable than protected.
 

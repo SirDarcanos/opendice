@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to `@openfray/dice`. The format follows
+Notable changes to `opendice`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this package follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html): anything that changes the
 public API is a major version, and the `breaking` label on GitHub marks issues and pull
@@ -8,7 +8,17 @@ requests that would.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **Renamed from `@openfray/dice` to `opendice`.** Same code, same API, same version
+  line. The package was never about one product, and the scope said otherwise. The old
+  name stays published and is deprecated, so nothing breaks; update when it suits you.
+
+  ```bash
+  npm uninstall @openfray/dice && npm install opendice
+  ```
+
+  Every import changes with it: `from '@openfray/dice'` becomes `from 'opendice'`.
 
 ## [1.1.0] — 2026-08-04
 
@@ -119,6 +129,6 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/OpenFrayApp/dice/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/OpenFrayApp/dice/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/OpenFrayApp/dice/releases/tag/v1.0.0
+[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/SirDarcanos/opendice/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/SirDarcanos/opendice/releases/tag/v1.0.0
