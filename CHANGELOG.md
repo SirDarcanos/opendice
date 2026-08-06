@@ -22,6 +22,13 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.2.0] — 2026-08-06
+
+A way of rolling dice that was missing, and a packaging fault that made the published
+source maps useless.
+
 ### Added
 
 - Penetrating dice: `1d6!p` explodes on a top face like `1d6!`, but every roll after the
@@ -153,6 +160,7 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/SirDarcanos/opendice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/SirDarcanos/opendice/releases/tag/v1.0.0
