@@ -113,12 +113,19 @@ function bonusTerms(bonuses: (number | string)[]): Term[] {
 /**
  * Roll one die, rolling again while it lands on its top face; returns the whole chain.
  * A die of fewer than two sides never explodes — every roll would be a top face.
+ *
+ * Penetrating records every roll after the first as one less than the face shown, so the
+ * chain is what each roll contributed and still sums to the group's total. Whether the
+ * chain goes on turns on the face, not on the number recorded — so the deduction never
+ * shortens a chain, and a penetrated 1 is recorded as 0.
  */
-function explodeDie(sides: number, rand: RandomSource): number[] {
-  const chain = [rollDie(sides, rand)]
+function explodeDie(sides: number, rand: RandomSource, penetrate = false): number[] {
+  let face = rollDie(sides, rand)
+  const chain = [face]
   if (sides < 2) return chain
-  while (chain[chain.length - 1] === sides && chain.length <= MAX_EXPLOSIONS) {
-    chain.push(rollDie(sides, rand))
+  while (face === sides && chain.length <= MAX_EXPLOSIONS) {
+    face = rollDie(sides, rand)
+    chain.push(penetrate ? face - 1 : face)
   }
   return chain
 }
@@ -135,7 +142,7 @@ function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
 function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
   const results: number[] = []
   for (let i = 0; i < term.count; i++) {
-    if (term.explode) results.push(...explodeDie(term.sides, rand))
+    if (term.explode) results.push(...explodeDie(term.sides, rand, term.penetrate))
     else results.push(rollDie(term.sides, rand))
   }
   const kept = keptDice(results, term.keep)

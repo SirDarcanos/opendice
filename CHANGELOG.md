@@ -24,6 +24,33 @@ A rename is not a version, so it has no entry below.
 
 Nothing yet.
 
+## [1.2.0] — 2026-08-06
+
+A way of rolling dice that was missing, and a packaging fault that made the published
+source maps useless.
+
+### Added
+
+- Penetrating dice: `1d6!p` explodes on a top face like `1d6!`, but every roll after the
+  first counts 1 less. HackMaster uses this. The deduction comes off what a roll is worth
+  and not off the face it landed on, so it never shortens a chain — a second roll showing a
+  6 on a d6 is recorded as 5 and still rolls again. Only the extra rolls lose a point, so
+  `1d6!p` is not `1d6!` minus 1, and a penetrated 1 is recorded as 0, the one case where
+  `results` holds a number below 1. It takes a multiplier (`1d6!px2`), and carries the same
+  two limits as `!`: 100 penetrations per die, and no combining with `kh`, `kl`, `adv` or
+  `dis`. `DieGroup` is unchanged, so `kept` still sums to `total`; `DiceTerm` gained
+  `penetrate`, set alongside `explode` rather than replacing it, so anything already
+  reading `explode` keeps working.
+
+### Fixed
+
+- The published package includes `src`, so the source maps in it point at files that are
+  there. Every `.js.map` and `.d.ts.map` names `../src/*.ts`, and `files` listed only
+  `dist`, `README.md` and `LICENSE`, so the sources were left out of the tarball — a
+  bundler reading them warned that the sourcemap for each of the four modules points to
+  missing source files. It also makes the declaration maps work: go to definition on `roll`
+  now opens `roll.ts` rather than the generated `roll.d.ts`.
+
 ## [1.1.0] — 2026-08-04
 
 Hardening after an adversarial review of the package, and a group multiplier.
@@ -133,6 +160,7 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/SirDarcanos/opendice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/SirDarcanos/opendice/releases/tag/v1.0.0

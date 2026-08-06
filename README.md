@@ -68,6 +68,7 @@ roll('1d78') //      any number of sides, not only the usual ones
 | `1d20adv`   | Roll two d20 and keep the higher one. ("advantage")                       |
 | `1d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")                     |
 | `1d6!`      | Exploding — see [below](#exploding-dice).                                 |
+| `1d6!p`     | Penetrating — exploding, but each extra roll counts 1 less.               |
 | `1d6x10`    | Roll a d6, multiply that group by 10 — see [below](#multiplying-a-group). |
 | `2d10 fire` | A label on the end. See [Labels](#labels) — it is never maths.            |
 
@@ -171,6 +172,40 @@ Two constraints:
   one-in-sixty-million event, so the cap exists to stop a loaded random source hanging the
   process, not to bound fair dice. A one-sided die never explodes.
 
+## Penetrating dice
+
+`!p` is exploding with a penalty: every roll after the first counts 1 less.
+
+```ts
+roll('1d6!p') // rolled 6, then 4    → results [6, 3],    total 9
+roll('1d6!p') // rolled 6, 6, then 3 → results [6, 5, 2], total 13
+roll('1d6!p') // rolled 3            → results [3],       total 3
+```
+
+HackMaster uses this.
+
+The 1 comes off what a roll is worth, not off the face it landed on, so it never shortens a
+chain. On the second line the second roll landed on 6 and is recorded as 5: it was still a
+top face, so it rolled again.
+
+That is also how to read a chain back. The first roll of a die carried on if it equals the
+number of sides; every later one carried on if it is 1 below that.
+
+Three things follow:
+
+- **The first roll of each die is never reduced**, so `1d6!p` is not `1d6!` minus 1. Only
+  the extra rolls lose a point.
+- **A penetrated 1 is recorded as 0.** It is the one case where `results` holds a number
+  below 1, and it ends the chain like any other non-top face.
+- **A die penetrates at most 100 times**, and it does not combine with `kh`, `kl`, `adv` or
+  `dis` — the same two limits as [exploding](#exploding-dice), for the same reasons.
+
+It takes a multiplier, applied last, to the whole chain:
+
+```ts
+roll('1d6!px2') // let it penetrate, then double what the chain came to
+```
+
 ## Multiplying a group
 
 `x` followed by a whole number multiplies that group's total:
@@ -197,6 +232,7 @@ It combines with everything else and always applies last, to whatever the group 
 roll('4d6kh3x2') //  keep the best three, then double them
 roll('1d20advx2') // advantage, then double the die that won
 roll('1d6!x2') //    let it explode, then double the whole chain
+roll('1d6!px2') //   let it penetrate, then double what the chain came to
 ```
 
 `multiplier` is reported on the group, so a total can be checked:

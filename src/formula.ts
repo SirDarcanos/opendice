@@ -9,6 +9,7 @@
  *   1d20adv/1d20dis  advantage/disadv     roll two, keep highest/lowest
  *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3
  *   NdM!             exploding            1d6! — a top face rolls again and adds
+ *   NdM!p            penetrating          1d6!p — as `!`, but each extra roll counts 1 less
  *   NdMxK            group multiplier     1d6x10 — this group's total, times K
  *   +1d4             additive sub-roll    1d8+1d4+3
  *   " fire"          trailing tag         metadata, never math
@@ -56,6 +57,12 @@ export interface DiceTerm {
   advantage?: 'advantage' | 'disadvantage'
   /** Every die landing on its top face is rolled again and added. */
   explode?: true
+  /**
+   * Penetrating: every roll after the first counts 1 less. Set alongside `explode`, since
+   * a penetrating die is an exploding one — what changes is what each extra roll is worth,
+   * not when the next one happens.
+   */
+  penetrate?: true
   /** Multiply this group's total by a whole number. Binds to the group, never the sum. */
   multiplier?: number
 }
@@ -157,8 +164,9 @@ function diceTerm(
     term.advantage = suffix === 'adv' ? 'advantage' : 'disadvantage'
     term.count = 2
     term.keep = { mode: suffix === 'adv' ? 'kh' : 'kl', n: 1 }
-  } else if (suffix === '!') {
+  } else if (suffix === '!' || suffix === '!p') {
     term.explode = true
+    if (suffix === '!p') term.penetrate = true
   } else if (suffix) {
     const n = Number(suffix.slice(2))
     if (n < 1) {
@@ -220,7 +228,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   if (expr === '') throw new Error(`Empty dice formula: "${excerpt(source)}"`)
 
   const terms: Term[] = []
-  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!)?(x\d+)?|(\d+))/y
+  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!p?)?(x\d+)?|(\d+))/y
   let pos = 0
   while (pos < expr.length) {
     re.lastIndex = pos

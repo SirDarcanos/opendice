@@ -1,6 +1,6 @@
 {
   "name": "opendice",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Roll dice in JavaScript or TypeScript. A formula parser and one roll() over a CSPRNG with modulo-bias rejection.",
   "license": "MIT",
   "author": "Nicola Mustone",
@@ -15,6 +15,7 @@
   },
   "files": [
     "dist",
+    "src",
     "README.md",
     "LICENSE"
   ],
