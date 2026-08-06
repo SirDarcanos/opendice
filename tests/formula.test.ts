@@ -434,7 +434,7 @@ describe('penetrating dice', () => {
 
   it('cannot be combined with a keep rule or advantage', () => {
     expect(() => parseFormula('4d6kh3!p')).toThrow()
-    expect(() => parseFormula('1d20adv!p')).toThrow()
+    expect(() => parseFormula('2d20adv!p')).toThrow()
     expect(() => parseFormula('1d6!p!p')).toThrow()
   })
 

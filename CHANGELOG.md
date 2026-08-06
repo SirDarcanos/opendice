@@ -22,6 +22,12 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.3.0] — 2026-08-06
+
+The count written in front of `adv` and `dis` is now the count that gets rolled.
+
 ### Changed
 
 - `adv` and `dis` no longer overwrite the count they were written with. The suffix says
@@ -182,7 +188,8 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...HEAD
+[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/SirDarcanos/opendice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/SirDarcanos/opendice/releases/tag/v1.0.0
