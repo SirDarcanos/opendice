@@ -22,7 +22,14 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- The published package includes `src`, so the source maps in it point at files that are
+  there. Every `.js.map` and `.d.ts.map` names `../src/*.ts`, and `files` listed only
+  `dist`, `README.md` and `LICENSE`, so the sources were left out of the tarball — a
+  bundler reading them warned that the sourcemap for each of the four modules points to
+  missing source files. It also makes the declaration maps work: go to definition on `roll`
+  now opens `roll.ts` rather than the generated `roll.d.ts`.
 
 ## [1.1.0] — 2026-08-04
 
