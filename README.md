@@ -65,8 +65,9 @@ roll('1d78') //      any number of sides, not only the usual ones
 | `1d8+1d4+3` | Mix as many dice and numbers as you like.                                 |
 | `4d6kh3`    | Roll four d6, **k**eep the **h**ighest **3**.                             |
 | `4d6kl3`    | Same, but keep the **l**owest 3.                                          |
-| `1d20adv`   | Roll two d20 and keep the higher one. ("advantage")                       |
-| `1d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")                     |
+| `2d20adv`   | Roll two d20 and keep the higher one. ("advantage")                       |
+| `2d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")                     |
+| `4d20adv`   | Roll four d20 and keep the highest — `adv` always keeps exactly one.      |
 | `1d6!`      | Exploding — see [below](#exploding-dice).                                 |
 | `1d6!p`     | Penetrating — exploding, but each extra roll counts 1 less.               |
 | `1d6x10`    | Roll a d6, multiply that group by 10 — see [below](#multiplying-a-group). |
@@ -74,10 +75,15 @@ roll('1d78') //      any number of sides, not only the usual ones
 
 Spaces are ignored and capitals are accepted: `2D6 + 3` works.
 
+`adv` and `dis` keep exactly one die, so the count says how many are thrown to choose
+between. `1d20adv` asks for one die and gets two, since one die would leave the suffix
+nothing to do: it rolls, and warns once that `2d20adv` is what you meant. A future version
+will refuse it, so write the `2`.
+
 ### What you get back
 
 ```ts
-const r = roll('1d20adv+5')
+const r = roll('2d20adv+5')
 ```
 
 | Property         | Example       | Meaning                                        |
@@ -86,7 +92,7 @@ const r = roll('1d20adv+5')
 | `dice`           | see below     | One entry per group of dice.                   |
 | `modifier`       | `5`           | All the plain numbers added together.          |
 | `modifiers`      | `[5]`         | Each plain number on its own.                  |
-| `formula`        | `'1d20adv+5'` | What you passed in.                            |
+| `formula`        | `'2d20adv+5'` | What you passed in.                            |
 | `advantageState` | `'advantage'` | `'normal'`, `'advantage'` or `'disadvantage'`. |
 | `tag`            | `undefined`   | The label on the end, if there was one.        |
 
@@ -125,10 +131,13 @@ roll('1d20+7', {
 })
 ```
 
-**`advantage`** does the same as writing `adv` in the formula: use the formula when it is
-fixed, the option when your code decides at run time. If several things in your program
-would each set it, resolve them yourself and pass one answer — this library applies no
-rules of its own.
+**`advantage`** gives the first plain d20 in the formula advantage or disadvantage: use the
+formula when the roll is fixed, the option when your code decides at run time. It applies to
+a formula already written, so it rolls the second d20 for you — `roll('1d20+7', { advantage:
+'advantage' })` rolls two d20 and keeps the higher, and says nothing, because asking for
+advantage on a plain `1d20` is what the option is for. A formula already asking for more
+than two keeps its own count. If several things in your program would each set it, resolve
+them yourself and pass one answer — this library applies no rules of its own.
 
 **`bonuses`** adds numbers or dice without editing the formula text:
 
@@ -230,7 +239,7 @@ It combines with everything else and always applies last, to whatever the group 
 
 ```ts
 roll('4d6kh3x2') //  keep the best three, then double them
-roll('1d20advx2') // advantage, then double the die that won
+roll('2d20advx2') // advantage, then double the die that won
 roll('1d6!x2') //    let it explode, then double the whole chain
 roll('1d6!px2') //   let it penetrate, then double what the chain came to
 ```
@@ -462,7 +471,7 @@ Which dice counted, in the order they were rolled.
 ```ts
 import { roll, keptFlags } from 'opendice'
 
-const r = roll('1d20adv') // rolled [4, 17], kept [17]
+const r = roll('2d20adv') // rolled [4, 17], kept [17]
 keptFlags(r.dice[0]) // [false, true]
 ```
 

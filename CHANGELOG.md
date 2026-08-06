@@ -24,6 +24,34 @@ A rename is not a version, so it has no entry below.
 
 Nothing yet.
 
+## [1.3.0] — 2026-08-06
+
+The count written in front of `adv` and `dis` is now the count that gets rolled.
+
+### Changed
+
+- `adv` and `dis` no longer overwrite the count they were written with. The suffix says
+  which one die survives, and the count says how many are thrown, so `4d20adv` rolls four
+  d20 and keeps the highest. It used to roll two whatever the formula asked for: `4d20adv`
+  was `2d20kh1`, and the `4` was discarded without a word.
+
+### Deprecated
+
+- A count of 1 with `adv` or `dis`. `1d20adv` still rolls, and still rolls two dice, but it
+  now warns once per suffix that `2d20adv` is the formula it means. One die leaves the
+  suffix nothing to choose between, so the count cannot be taken at face value. A future
+  version will refuse it. The migration is mechanical: every `1d20adv` becomes `2d20adv`.
+
+  The warning goes to `console.warn`, once per process per suffix rather than per roll. Note
+  that `formula` on the result stays exactly as you wrote it, so a roll log built from it
+  will show `1d20adv` beside two dice until the formula is fixed.
+
+The `advantage` option in `RollContext` is unchanged, warns nothing, and still takes a plain
+`1d20`: `roll('1d20+7', { advantage: 'advantage' })` rolls the second die for you. The option
+applies advantage to a formula already written, where the suffix states the dice up front. A
+formula already asking for more than two d20 now keeps its own count instead of being cut
+back to two.
+
 ## [1.2.0] — 2026-08-06
 
 A way of rolling dice that was missing, and a packaging fault that made the published
@@ -160,7 +188,8 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...HEAD
+[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/SirDarcanos/opendice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/SirDarcanos/opendice/releases/tag/v1.0.0

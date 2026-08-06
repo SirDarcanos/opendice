@@ -6,7 +6,7 @@
  *
  *   NdM              standard             2d6
  *   NdM+K / NdM-K    modifier             1d20+7, 10-1d4
- *   1d20adv/1d20dis  advantage/disadv     roll two, keep highest/lowest
+ *   Nd20adv/Nd20dis  advantage/disadv     2d20adv — roll N, keep highest/lowest
  *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3
  *   NdM!             exploding            1d6! — a top face rolls again and adds
  *   NdM!p            penetrating          1d6!p — as `!`, but each extra roll counts 1 less
@@ -142,7 +142,39 @@ export function assertRollable(terms: Term[]): void {
   }
 }
 
-/** A DiceTerm from the parser's captures: blank count → 1; adv/dis desugars to 2 dice keep 1. */
+/**
+ * Which suffixes have already warned that a count of 1 is being read as 2.
+ *
+ * Keyed by the suffix, so it holds two entries at the most. Keyed by the formula it would
+ * be a set filled from untrusted input — `1d20adv`, `01d20adv`, `001d20adv` and so on all
+ * parse to the same roll and would each add a line to it.
+ */
+const warnedSuffixes = new Set<string>()
+
+/** Forget which warnings have been given. For tests; not exported from the package. */
+export function resetAdvantageWarnings(): void {
+  warnedSuffixes.clear()
+}
+
+/**
+ * Warn, once per suffix, that `1d20adv` rolls two dice. Once rather than per roll because
+ * a warning on every roll of a long fight is a warning nobody reads, and because this is
+ * a library writing to somebody else's console.
+ *
+ * The formula in the message is rebuilt from numbers the parser has already read, never
+ * pasted from the caller's text — the same reason `excerpt` exists.
+ */
+function warnSingleDie(sides: number, suffix: 'adv' | 'dis'): void {
+  if (warnedSuffixes.has(suffix)) return
+  warnedSuffixes.add(suffix)
+  console.warn(
+    `opendice: "1d${sides}${suffix}" rolls 2 dice, not 1. "${suffix}" keeps one die out of ` +
+      `several, so it needs at least two to choose between — write "2d${sides}${suffix}". ` +
+      `A future version will refuse a count below 2.`,
+  )
+}
+
+/** A DiceTerm from the parser's captures: blank count → 1; adv/dis keeps 1 of the count. */
 function diceTerm(
   sign: 1 | -1,
   countStr: string,
@@ -161,8 +193,18 @@ function diceTerm(
     sides,
   }
   if (suffix === 'adv' || suffix === 'dis') {
+    // adv/dis keeps one die out of the several rolled, and the count says how many are
+    // thrown, so `4d20adv` keeps the best of four. One die has nothing to choose between,
+    // so it is read as two and warned about rather than refused: `1d20adv` is what callers
+    // have written since the suffix existed, and what they meant by it was never in doubt.
+    //
+    // A count of 0 is left alone for `assertRollable` to refuse as no dice at all. Reading
+    // that as two would turn "roll nothing" into a roll.
+    if (term.count === 1) {
+      warnSingleDie(sides, suffix)
+      term.count = 2
+    }
     term.advantage = suffix === 'adv' ? 'advantage' : 'disadvantage'
-    term.count = 2
     term.keep = { mode: suffix === 'adv' ? 'kh' : 'kl', n: 1 }
   } else if (suffix === '!' || suffix === '!p') {
     term.explode = true

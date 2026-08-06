@@ -74,7 +74,7 @@ export interface RollContext {
   tags?: Iterable<string> & object
 }
 
-/** Apply adv/dis to the first plain d20 term (roll two, keep highest/lowest). */
+/** Apply adv/dis to the first plain d20 term (roll N, keep highest/lowest). */
 function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'): Term[] {
   let applied = false
   return terms.map((t) => {
@@ -84,7 +84,11 @@ function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'):
     applied = true
     return ownProperties<DiceTerm>({
       ...t,
-      count: 2,
+      // Unlike the `adv` suffix, this asks for advantage on a formula already written, so
+      // one die is a request to add the second rather than a contradiction to refuse: the
+      // caller wrote `1d20` and said "with advantage". A larger count is left alone, since
+      // it is the roll the caller asked for and already has dice to choose between.
+      count: Math.max(t.count, 2),
       keep: { mode: advantage === 'advantage' ? 'kh' : 'kl', n: 1 },
       advantage,
     })
