@@ -252,9 +252,11 @@ describe('a polluted Object.prototype', () => {
   it('cannot forge a keep rule or an explosion on a term', () => {
     pollute('keep', { mode: 'kl', n: 1 })
     pollute('explode', true)
+    pollute('penetrate', true)
     const term = parseFormula('4d6').terms[0]
     expect(term.kind === 'dice' && term.keep).toBeUndefined()
     expect(term.kind === 'dice' && term.explode).toBeUndefined()
+    expect(term.kind === 'dice' && term.penetrate).toBeUndefined()
   })
 })
 
@@ -325,5 +327,45 @@ describe('exploding dice', () => {
     expect(() => parseFormula('4d6kh3!')).toThrow()
     expect(() => parseFormula('1d20adv!')).toThrow()
     expect(() => parseFormula('1d6!!')).toThrow()
+  })
+})
+
+describe('penetrating dice', () => {
+  // Penetrating is exploding that counts the extra rolls differently, so it sets both
+  // flags: anything reading `explode` keeps working, and `penetrate` says what changed.
+  it('marks a term as exploding and penetrating', () => {
+    expect(parseFormula('1d6!p').terms[0]).toMatchObject({
+      sides: 6,
+      count: 1,
+      explode: true,
+      penetrate: true,
+    })
+  })
+
+  it('leaves a plain exploding term unpenetrated', () => {
+    expect('penetrate' in parseFormula('1d6!').terms[0]).toBe(false)
+    expect('penetrate' in parseFormula('1d6').terms[0]).toBe(false)
+  })
+
+  it('takes a multiplier and sits alongside other terms', () => {
+    expect(parseFormula('1d6!px2').terms[0]).toMatchObject({ penetrate: true, multiplier: 2 })
+    const t = parseFormula('1d6!p+1d4+2').terms
+    expect(t).toHaveLength(3)
+    expect(t[0]).toMatchObject({ penetrate: true })
+    expect('penetrate' in t[1]).toBe(false)
+  })
+
+  it('cannot be combined with a keep rule or advantage', () => {
+    expect(() => parseFormula('4d6kh3!p')).toThrow()
+    expect(() => parseFormula('1d20adv!p')).toThrow()
+    expect(() => parseFormula('1d6!p!p')).toThrow()
+  })
+
+  // `p` is only a suffix directly after `!`; on its own it is a stray word, and a
+  // trailing one is a typo far more often than anything else.
+  it('refuses a p that is not part of the suffix', () => {
+    expect(() => parseFormula('1d6p')).toThrow()
+    expect(() => parseFormula('1d6!pp')).toThrow()
+    expect(() => parseFormula('1d6px2')).toThrow()
   })
 })

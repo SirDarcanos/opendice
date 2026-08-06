@@ -34,6 +34,22 @@ Three rules came out of that, each already re-litigated once:
 Exploding dice (`1d6!`) are in, and are the example of what belongs: a way of rolling dice,
 not a rule about what a roll means.
 
+Penetrating dice (`1d6!p`) are in on the same grounds, and are the harder case: the −1 on
+each extra roll looks like a ruling but is part of how the die is rolled, the way keeping
+the highest three is. The test it passes is that nothing has to be known about the roll's
+purpose to apply it. A penalty that depended on what the roll was for would not.
+
+An explode threshold (`1d6!p>5`) was asked for alongside it and deferred — open, not
+settled. Three things have to be decided together before anyone writes it:
+
+- **`>` is not in the character allowlist**, and that allowlist is a security boundary
+  rather than a grammar convenience. See the `source` entry under "Things that bite".
+- **It belongs to `!` as much as to `!p`.** Shipping `1d6!p>5` while `1d6!>5` throws leaves
+  a difference nobody can explain.
+- **`>5` reads as "5 or more", not "more than 5".** Under the literal sign `1d6!p>5` is
+  just `1d6!p` on a d6, which makes the obvious worked example a no-op. A grammar whose
+  own example does nothing is the wrong grammar, so the sign is what should give way.
+
 A group multiplier (`1d6x10`) is in on the same grounds. Two decisions about it were argued
 and settled, and both will come back:
 
@@ -80,8 +96,8 @@ request.
 ## Things that bite
 
 - **`explode` cannot combine with `kh`/`kl`/`adv`/`dis`.** The grammar treats the suffixes as
-  alternatives, so `4d6kh3!` throws. Do not "fix" it without first deciding what "keep the
-  highest three" should mean when each die is an open-ended chain.
+  alternatives, so `4d6kh3!` and `4d6kh3!p` both throw. Do not "fix" it without first
+  deciding what "keep the highest three" should mean when each die is an open-ended chain.
 - **A die explodes at most 100 times**, so `results` can hold 101 entries. A die of fewer
   than two sides never explodes. Both bounds exist so a loaded `RandomSource` cannot hang the
   process, not because a fair die might reach them.
@@ -101,6 +117,13 @@ request.
   the library both creates and later reads an optional field from goes through it.
 - **`results` is flat.** An exploding group's `results` holds every roll it made, so it can
   be longer than the die count. A roll equal to `sides` is what caused the next one.
+- **Penetrating records what a roll was worth, not the face it showed.** `!p` stores every
+  roll after the first as one less, so `kept` still sums to `total` and a caller can check
+  the arithmetic — but a recorded 5 on a d6 was a 6, which is why the chain continues on
+  the face and not on the number stored. Reading a chain back is still exact: the first
+  roll continued at `sides`, every later one at `sides - 1`. Moving the deduction into a
+  separate field would keep `results` raw at the cost of that check, and was not taken.
+  A penetrated 1 stores 0, the only 0 `results` can hold.
 - **`soleDieGroup` counts groups, not dice.** `2d6+3` has one group; `1d20+1d6` has two and
   returns nothing.
 

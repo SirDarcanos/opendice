@@ -22,6 +22,19 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
+### Added
+
+- Penetrating dice: `1d6!p` explodes on a top face like `1d6!`, but every roll after the
+  first counts 1 less. HackMaster uses this. The deduction comes off what a roll is worth
+  and not off the face it landed on, so it never shortens a chain — a second roll showing a
+  6 on a d6 is recorded as 5 and still rolls again. Only the extra rolls lose a point, so
+  `1d6!p` is not `1d6!` minus 1, and a penetrated 1 is recorded as 0, the one case where
+  `results` holds a number below 1. It takes a multiplier (`1d6!px2`), and carries the same
+  two limits as `!`: 100 penetrations per die, and no combining with `kh`, `kl`, `adv` or
+  `dis`. `DieGroup` is unchanged, so `kept` still sums to `total`; `DiceTerm` gained
+  `penetrate`, set alongside `explode` rather than replacing it, so anything already
+  reading `explode` keeps working.
+
 ### Fixed
 
 - The published package includes `src`, so the source maps in it point at files that are

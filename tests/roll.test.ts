@@ -248,6 +248,74 @@ describe('exploding dice', () => {
   })
 })
 
+describe('penetrating dice', () => {
+  it('takes 1 off every roll after the first', () => {
+    // Faces 6 then 4: the 4 is recorded as 3, so the chain reads 6 + 3.
+    const r = roll('1d6!p', { rand: faceSeq(6, 4) })
+    expect(r.dice[0].results).toEqual([6, 3])
+    expect(r.total).toBe(9)
+  })
+
+  // The deduction is what the roll is worth, not what the die showed, so a penetrated top
+  // face keeps the chain going. Faces 6, 6, 3 record as 6, 5, 2.
+  it('goes on from a top face that was penetrated', () => {
+    const r = roll('1d6!p', { rand: faceSeq(6, 6, 3) })
+    expect(r.dice[0].results).toEqual([6, 5, 2])
+    expect(r.total).toBe(13)
+  })
+
+  it('leaves a die that never penetrated alone', () => {
+    const r = roll('1d6!p', { rand: faceSeq(3) })
+    expect(r.dice[0].results).toEqual([3])
+    expect(r.total).toBe(3)
+  })
+
+  // Only the extra rolls lose a point, so this is not the same as `1d6!` minus one.
+  it('does not touch the first roll of any die', () => {
+    const r = roll('3d6!p', { rand: faceSeq(6, 4, 2, 3) })
+    expect(r.dice[0].results).toEqual([6, 3, 2, 3])
+    expect(r.total).toBe(14)
+  })
+
+  // A penetrated 1 is worth nothing rather than going negative, and it ends the chain.
+  it('records a penetrated lowest face as zero', () => {
+    const r = roll('1d6!p', { rand: faceSeq(6, 1) })
+    expect(r.dice[0].results).toEqual([6, 0])
+    expect(r.total).toBe(6)
+  })
+
+  it('carries the whole chain into the total, modifiers included', () => {
+    expect(roll('1d6!p+5', { rand: faceSeq(6, 2) }).total).toBe(12)
+    expect(roll('10-1d6!p', { rand: faceSeq(6, 4) }).total).toBe(1)
+  })
+
+  it('multiplies the penetrated chain, not the faces', () => {
+    const g = roll('1d6!px2', { rand: faceSeq(6, 4) }).dice[0]
+    expect(g.kept).toEqual([6, 3])
+    expect(g.multiplier).toBe(2)
+    expect(g.total).toBe(18)
+  })
+
+  it('never penetrates a die with fewer than two sides', () => {
+    const r = roll('1d1!p', { rand: () => 0 })
+    expect(r.dice[0].results).toEqual([1])
+    expect(r.total).toBe(1)
+  })
+
+  // The same bound as `!`: a loaded source cannot spin the chain out forever.
+  it('cuts a runaway chain rather than looping forever', () => {
+    const alwaysMax: RandomSource = () => 5 // a d6 rejects nothing at 5, giving face 6
+    const r = roll('1d6!p', { rand: alwaysMax })
+    expect(r.dice[0].results.length).toBeLessThanOrEqual(101)
+    expect(r.dice[0].results.slice(1).every((v) => v === 5)).toBe(true)
+  })
+
+  it('reports no natural face once a die has penetrated', () => {
+    expect(roll('1d6!p', { rand: faceSeq(6, 4) }).dice[0].naturalHigh).toBe(false)
+    expect(roll('1d6!p', { rand: faceSeq(1) }).dice[0].naturalLow).toBe(true)
+  })
+})
+
 describe('group multiplier', () => {
   it('multiplies what the group kept', () => {
     const g = roll('1d6x10', { rand: faceSeq(3) }).dice[0]
@@ -402,6 +470,12 @@ describe('a polluted Object.prototype', () => {
   it('cannot make a die explode', () => {
     pollute('explode', true)
     expect(roll('1d6', { rand: faceSeq(6) }).dice[0].results).toEqual([6])
+  })
+
+  // Penetration would take a point off rolls the formula never asked to penetrate.
+  it('cannot make an exploding die penetrate', () => {
+    pollute('penetrate', true)
+    expect(roll('1d6!', { rand: faceSeq(6, 4) }).dice[0].results).toEqual([6, 4])
   })
 
   it('cannot drop dice with a keep rule', () => {
