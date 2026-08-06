@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Nicola Mustone
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { keptFlags, roll, soleDieGroup } from '../src/roll.ts'
+import { resetAdvantageWarnings } from '../src/formula.ts'
 import type { RandomSource } from '../src/rng.ts'
 
 /** Deterministic source: yields the given die faces in order (face f -> f-1 raw). */
@@ -63,13 +64,13 @@ describe('roll', () => {
 
   // Advantage keeps one of two, so the kept die still counts.
   it('reads the kept die, not the dropped one', () => {
-    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).dice[0].naturalHigh).toBe(true)
-    expect(roll('1d20adv', { rand: faceSeq(1, 20) }).dice[0].naturalLow).toBe(false)
-    expect(roll('1d20dis', { rand: faceSeq(1, 20) }).dice[0].naturalLow).toBe(true)
+    expect(roll('2d20adv', { rand: faceSeq(1, 20) }).dice[0].naturalHigh).toBe(true)
+    expect(roll('2d20adv', { rand: faceSeq(1, 20) }).dice[0].naturalLow).toBe(false)
+    expect(roll('2d20dis', { rand: faceSeq(1, 20) }).dice[0].naturalLow).toBe(true)
   })
 
   it('keeps the highest on advantage', () => {
-    const r = roll('1d20adv+5', { rand: faceSeq(4, 18) })
+    const r = roll('2d20adv+5', { rand: faceSeq(4, 18) })
     expect(r.dice[0].results).toEqual([4, 18])
     expect(r.dice[0].kept).toEqual([18])
     expect(r.total).toBe(23)
@@ -77,10 +78,43 @@ describe('roll', () => {
   })
 
   it('keeps the lowest on disadvantage', () => {
-    const r = roll('1d20dis+5', { rand: faceSeq(4, 18) })
+    const r = roll('2d20dis+5', { rand: faceSeq(4, 18) })
     expect(r.dice[0].kept).toEqual([4])
     expect(r.total).toBe(9)
     expect(r.advantageState).toBe('disadvantage')
+  })
+
+  // Advantage is "keep the best one", whatever the count. Three dice and four dice are
+  // the same operation as two, and still leave exactly one die standing.
+  it('keeps the single best die out of more than two', () => {
+    const r = roll('4d20adv', { rand: faceSeq(4, 18, 11, 2) })
+    expect(r.dice[0].results).toEqual([4, 18, 11, 2])
+    expect(r.dice[0].kept).toEqual([18])
+    expect(r.total).toBe(18)
+    expect(keptFlags(r.dice[0])).toEqual([false, true, false, false])
+
+    const d = roll('3d20dis', { rand: faceSeq(9, 15, 2) })
+    expect(d.dice[0].kept).toEqual([2])
+    expect(d.advantageState).toBe('disadvantage')
+  })
+
+  // `1d20adv` still rolls, and still rolls two dice — the count is read as 2 and the
+  // caller told about it, rather than the roll being refused out from under them.
+  it('rolls a single-die advantage formula as two, with a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    resetAdvantageWarnings()
+
+    const r = roll('1d20adv+5', { rand: faceSeq(4, 18) })
+    expect(r.dice[0].results).toEqual([4, 18])
+    expect(r.dice[0].kept).toEqual([18])
+    expect(r.total).toBe(23)
+    expect(r.advantageState).toBe('advantage')
+    // The formula is the caller's text, kept as written even though 2 dice were rolled.
+    expect(r.formula).toBe('1d20adv+5')
+    expect(warn).toHaveBeenCalledTimes(1)
+
+    vi.restoreAllMocks()
+    resetAdvantageWarnings()
   })
 
   it('keeps the highest N (4d6kh3)', () => {
@@ -139,6 +173,22 @@ describe('roll', () => {
     const r = roll('1d20+5', { advantage: 'disadvantage', rand: faceSeq(4, 18) })
     expect(r.dice[0].kept).toEqual([4])
     expect(r.advantageState).toBe('disadvantage')
+  })
+
+  // The option asks for advantage on a formula already written, so one die is a request
+  // for the second rather than the contradiction the `adv` suffix refuses.
+  it('adds the second die when the formula only asked for one', () => {
+    const r = roll('1d20', { advantage: 'advantage', rand: faceSeq(4, 18) })
+    expect(r.dice[0].results).toHaveLength(2)
+    expect(r.dice[0].kept).toEqual([18])
+  })
+
+  // A count the caller wrote is the roll they asked for, and already has dice to choose
+  // between, so advantage keeps the best of those rather than cutting them back to two.
+  it('leaves a larger count alone', () => {
+    const r = roll('4d20', { advantage: 'advantage', rand: faceSeq(4, 18, 11, 2) })
+    expect(r.dice[0].results).toEqual([4, 18, 11, 2])
+    expect(r.dice[0].kept).toEqual([18])
   })
 
   it("treats advantage 'normal' as a no-op", () => {
@@ -346,7 +396,7 @@ describe('group multiplier', () => {
 
   it('applies after a keep rule, advantage and an explosion', () => {
     expect(roll('4d6kh3x2', { rand: faceSeq(1, 5, 3, 6) }).total).toBe(28)
-    expect(roll('1d20advx2', { rand: faceSeq(4, 18) }).total).toBe(36)
+    expect(roll('2d20advx2', { rand: faceSeq(4, 18) }).total).toBe(36)
     expect(roll('1d6!x2', { rand: faceSeq(6, 2) }).total).toBe(16)
   })
 
@@ -358,7 +408,7 @@ describe('group multiplier', () => {
   })
 
   it('leaves keptFlags lined up with results', () => {
-    expect(keptFlags(roll('1d20advx2', { rand: faceSeq(4, 18) }).dice[0])).toEqual([false, true])
+    expect(keptFlags(roll('2d20advx2', { rand: faceSeq(4, 18) }).dice[0])).toEqual([false, true])
   })
 })
 
@@ -410,7 +460,7 @@ describe('negative and signed terms', () => {
   })
 
   it('keeps the highest of a subtracted advantage roll, then subtracts it', () => {
-    const r = roll('-1d20adv', { rand: faceSeq(4, 18) })
+    const r = roll('-2d20adv', { rand: faceSeq(4, 18) })
     expect(r.dice[0].kept).toEqual([18])
     expect(r.total).toBe(-18)
   })
