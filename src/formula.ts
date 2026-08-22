@@ -10,6 +10,8 @@
  *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3 — a blank X keeps 1
  *   NdM!             exploding            1d6! — a top face rolls again and adds
  *   NdM!p            penetrating          1d6!p — as `!`, but each extra roll counts 1 less
+ *   NdMminK/NdMmaxK  bound on each die    2d6min3 — a die under 3 counts as 3
+ *   NdMtotalminK     bound on the sum     2d6totalmin3 — a sum under 3 counts as 3
  *   NdMxK            group multiplier     1d6x10 — this group's total, times K
  *   +1d4             additive sub-roll    1d8+1d4+3
  *   " fire"          trailing tag         metadata, never math
@@ -40,6 +42,9 @@ export const MAX_DICE = 1000
  */
 export const MAX_EXPLOSIONS = 100
 
+/** A `min`/`max` bound, with the `total` prefix that sets it against the sum instead. */
+const BOUND_SUFFIX = /^(total)?(min|max)(\d+)$/
+
 /** Characters a formula can legitimately contain; everything else is not one. */
 const FORMULA_CHARACTERS = /[^a-z0-9+\-! ]/gi
 
@@ -53,6 +58,12 @@ export interface DiceTerm {
   sides: number
   /** Keep the highest/lowest N rolled dice. */
   keep?: { mode: 'kh' | 'kl'; n: number }
+  /**
+   * A value the dice have to beat (`min`) or may not exceed (`max`), joining the pool
+   * rather than rewriting a face. `die` gives every die its own copy, `total` sets one
+   * against the sum.
+   */
+  bound?: { mode: 'min' | 'max'; value: number; scope: 'die' | 'total' }
   /** adv/dis sugar, recorded so the roll result can report it. */
   advantage?: 'advantage' | 'disadvantage'
   /** Every die landing on its top face is rolled again and added. */
@@ -118,7 +129,13 @@ function excerpt(text: string): string {
 function largestTotal(terms: Term[]): number {
   return terms.reduce((sum, t) => {
     if (t.kind === 'flat') return sum + Math.abs(t.value)
-    return sum + t.count * t.sides * (t.explode ? MAX_EXPLOSIONS + 1 : 1) * (t.multiplier ?? 1)
+    let most = t.count * t.sides * (t.explode ? MAX_EXPLOSIONS + 1 : 1)
+    // A `min` carries a group past anything its dice could roll, so the ceiling counts
+    // it. A `max` only lowers a group and cannot raise it.
+    if (t.bound?.mode === 'min') {
+      most = Math.max(most, t.bound.scope === 'die' ? t.count * t.bound.value : t.bound.value)
+    }
+    return sum + most * (t.multiplier ?? 1)
   }, 0)
 }
 
@@ -192,6 +209,7 @@ function diceTerm(
     count: countStr === '' ? 1 : Number(countStr),
     sides,
   }
+  const bound = suffix ? BOUND_SUFFIX.exec(suffix) : null
   if (suffix === 'adv' || suffix === 'dis') {
     // adv/dis keeps one die out of the several rolled, and the count says how many are
     // thrown, so `4d20adv` keeps the best of four. One die has nothing to choose between,
@@ -209,6 +227,17 @@ function diceTerm(
   } else if (suffix === '!' || suffix === '!p') {
     term.explode = true
     if (suffix === '!p') term.penetrate = true
+  } else if (bound) {
+    const value = Number(bound[3])
+    // Below 1 a `min` is a floor no die falls through and a `max` erases the dice.
+    if (value < 1) {
+      throw new Error(`A bound must be at least 1, but "${suffix}" bounds the dice at ${value}`)
+    }
+    term.bound = {
+      mode: bound[2] as 'min' | 'max',
+      value,
+      scope: bound[1] ? 'total' : 'die',
+    }
   } else if (suffix) {
     // A blank count keeps one, the way a blank count in front of the `d` rolls one die.
     const written = suffix.slice(2)
@@ -272,7 +301,8 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   if (expr === '') throw new Error(`Empty dice formula: "${excerpt(source)}"`)
 
   const terms: Term[] = []
-  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d*|kl\d*|!p?)?(x\d+)?|(\d+))/y
+  const re =
+    /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d*|kl\d*|totalmin\d+|totalmax\d+|min\d+|max\d+|!p?)?(x\d+)?|(\d+))/y
   let pos = 0
   while (pos < expr.length) {
     re.lastIndex = pos

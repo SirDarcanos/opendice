@@ -26,7 +26,14 @@ A rename is not a version, so it has no entry below.
 
 - `kh` and `kl` with no number after them keep one die, so `3d100kh` is `3d100kh1`. The
   count was mandatory and a bare `kh` was a parse error, which no reading of the formula
-  explained. `4d6kh0` still throws: leaving the number out is not writing zero.
+  explained.
+- Floors and ceilings. `2d6min3` gives every die a value it has to beat and `2d6max5` one
+  it may not pass; `totalmin` and `totalmax` set the bound against the group's total
+  instead. The bound goes into `results` as a value the dice competed against rather than
+  rewriting a face, so nothing rolled is lost and `total` can still be checked against
+  `kept`. A group that kept a bound reports no highest or lowest face, since a bound is not
+  a die. A bound must be at least 1, and does not combine with `kh`, `kl`, `adv`, `dis` or
+  `!`.
 
 ## [1.3.0] — 2026-08-06
 

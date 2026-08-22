@@ -58,21 +58,24 @@ roll('1d78') //      any number of sides, not only the usual ones
 
 ### The formula language
 
-| You write   | It means                                                                  |
-| ----------- | ------------------------------------------------------------------------- |
-| `2d6`       | Roll two six-sided dice and add them up.                                  |
-| `1d20+7`    | Roll a d20 and add 7. Use `-7` to subtract.                               |
-| `1d8+1d4+3` | Mix as many dice and numbers as you like.                                 |
-| `4d6kh3`    | Roll four d6, **k**eep the **h**ighest **3**.                             |
-| `4d6kl3`    | Same, but keep the **l**owest 3.                                          |
-| `4d6kh`     | Leave the number out and it keeps 1, the same as `4d6kh1`. `4d6kl` too.   |
-| `2d20adv`   | Roll two d20 and keep the higher one. ("advantage")                       |
-| `2d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")                     |
-| `4d20adv`   | Roll four d20 and keep the highest — `adv` always keeps exactly one.      |
-| `1d6!`      | Exploding — see [below](#exploding-dice).                                 |
-| `1d6!p`     | Penetrating — exploding, but each extra roll counts 1 less.               |
-| `1d6x10`    | Roll a d6, multiply that group by 10 — see [below](#multiplying-a-group). |
-| `2d10 fire` | A label on the end. See [Labels](#labels) — it is never maths.            |
+| You write      | It means                                                                  |
+| -------------- | ------------------------------------------------------------------------- |
+| `2d6`          | Roll two six-sided dice and add them up.                                  |
+| `1d20+7`       | Roll a d20 and add 7. Use `-7` to subtract.                               |
+| `1d8+1d4+3`    | Mix as many dice and numbers as you like.                                 |
+| `4d6kh3`       | Roll four d6, **k**eep the **h**ighest **3**.                             |
+| `4d6kl3`       | Same, but keep the **l**owest 3.                                          |
+| `4d6kh`        | Leave the number out and it keeps 1, the same as `4d6kh1`. `4d6kl` too.   |
+| `2d20adv`      | Roll two d20 and keep the higher one. ("advantage")                       |
+| `2d20dis`      | Roll two d20 and keep the lower one. ("disadvantage")                     |
+| `4d20adv`      | Roll four d20 and keep the highest — `adv` always keeps exactly one.      |
+| `1d6!`         | Exploding — see [below](#exploding-dice).                                 |
+| `1d6!p`        | Penetrating — exploding, but each extra roll counts 1 less.               |
+| `2d6min3`      | Every die counts at least 3 — see [below](#floors-and-ceilings).          |
+| `2d6max5`      | Every die counts at most 5.                                               |
+| `2d6totalmin3` | The dice **added up** count at least 3. `totalmax` caps the same way.     |
+| `1d6x10`       | Roll a d6, multiply that group by 10 — see [below](#multiplying-a-group). |
+| `2d10 fire`    | A label on the end. See [Labels](#labels) — it is never maths.            |
 
 Spaces are ignored and capitals are accepted: `2D6 + 3` works.
 
@@ -258,6 +261,70 @@ There is no division: it needs a rounding rule — down, to nearest, in whose fa
 choosing one would be this library deciding what a roll means. Write `Math.floor(total / 3)`
 yourself.
 
+## Floors and ceilings
+
+`min` sets a value the dice have to beat, `max` one they may not pass:
+
+```ts
+roll('2d6min3') // a die under 3 counts as 3
+roll('2d6max5') // a die over 5 counts as 5
+```
+
+Those apply to **each die on its own**. Write `totalmin` or `totalmax` to set the bound
+against the group's total instead:
+
+```ts
+roll('2d6totalmin3') // the two dice added up count as at least 3
+roll('2d6totalmax5') // and as at most 5
+```
+
+The two are not the same thing. `2d6min3` floors both dice, so the least it can come to
+is 6. `2d6totalmin3` floors the pair once, so the least it can come to is 3.
+
+`totalmin` means **that group's** total, not the roll's. A bound binds to its dice the way
+a multiplier does, so anything added afterwards lands on top of it:
+
+```ts
+roll('2d6totalmin8+1') // the dice count as at least 8, then +1 — so never below 9
+```
+
+On a subtracted group the bound applies to the die, not to what the group contributes, so
+a `min` raises what gets taken away:
+
+```ts
+roll('2d6+1-1d4min2') // the d4 subtracts at least 2, so this reaches 11 rather than 12
+```
+
+Nothing the dice showed is lost. The bound goes into `results` as a value the dice competed
+against, and `kept` says which of them won:
+
+```ts
+const low = roll('1d6min3', { rand: faces(1) }).dice[0]
+low.results // [1, 3] — the die rolled a 1, and met a bound of 3
+low.kept //    [3]    — the bound won
+low.total //   3
+
+const high = roll('1d6min3', { rand: faces(5) }).dice[0]
+high.results // [5, 3]
+high.kept //    [5] — the die won
+high.total //   5
+```
+
+So `total` can still be checked against `kept`, and [`keptFlags`](#keptflagsgroup) marks
+whichever entries lost. A die that ties its bound counts as the die.
+
+A bound must be at least 1, so `1d6min0` and `1d6max0` throw. It does not combine with
+`kh`, `kl`, `adv`, `dis` or `!`, which are alternatives to one another. It does combine
+with a multiplier, and the multiplier still applies last:
+
+```ts
+roll('2d6totalmin10x2') // rolled 1 and 1 -> floored to 10 -> 20
+```
+
+**A bound is not a die.** A group that kept one reports no highest or lowest face, because
+there is no die to report it for: `1d20min20` counts as 20 every time, and none of those is
+a 20 anybody rolled.
+
 ## Labels
 
 A formula may end in a word: `2d10+8 fire`. It is carried on the result and never affects
@@ -306,6 +373,12 @@ roll('3d6').dice[0].naturalHigh //   always false — three dice counted
 roll('4d6kh1').dice[0].naturalHigh // true if the kept die is a 6
 ```
 
+A bound is not a die, so a group that kept one has no face to report:
+
+```ts
+roll('1d20min20').dice[0].naturalHigh // false unless the d20 itself came up 20
+```
+
 When a roll mixes dice, each group answers for itself:
 
 ```ts
@@ -336,6 +409,9 @@ roll('600d6', { bonuses: ['600d6'] }) // throws, as roll('1200d6') does
 
 A keep rule must keep at least one die, so `4d6kh0` throws. Leaving the number out is not
 zero: `4d6kh` keeps one.
+
+A bound must be at least 1, so `1d6min0` and `1d6max0` throw. A `min` counts towards the
+exactness limit above, since it can carry a group past anything its dice could roll.
 
 ## A formula has to roll something
 

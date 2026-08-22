@@ -26,7 +26,10 @@ import {
 export interface DieGroup {
   sides: number
   sign: 1 | -1
-  /** Every die rolled, including those dropped by adv/dis/keep. */
+  /**
+   * Every die rolled, including those dropped by adv/dis/keep, and a `min`/`max` bound
+   * when the formula set one — so not every entry is a face something showed.
+   */
   results: number[]
   kept: number[]
   /**
@@ -38,7 +41,8 @@ export interface DieGroup {
   total: number
   /**
    * The one die this group kept showed its highest face. False unless exactly one die
-   * was kept, since a top face among several is not the result of anything on its own.
+   * was kept, since a top face among several is not the result of anything on its own,
+   * and false when a bound is what it kept: `1d20min20` keeps a 20 without rolling one.
    */
   naturalHigh: boolean
   /** The one die this group kept came up 1, on the same terms. */
@@ -78,7 +82,7 @@ export interface RollContext {
 function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'): Term[] {
   let applied = false
   return terms.map((t) => {
-    if (applied || t.kind !== 'dice' || t.sides !== 20 || t.keep || t.advantage) {
+    if (applied || t.kind !== 'dice' || t.sides !== 20 || t.keep || t.bound || t.advantage) {
       return t
     }
     applied = true
@@ -142,17 +146,52 @@ function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
   return keep.mode === 'kh' ? desc.slice(0, n) : desc.slice(results.length - n)
 }
 
+/**
+ * Apply a bound: a value in the pool the dice compete against, never a rewritten face, so
+ * `kept` stays a subset of `results` and a total stays checkable against it.
+ *
+ * Per die each face meets its own copy, written into the pool beside it. Per total the sum
+ * meets one copy at the end and keeping is all or nothing. A tie goes to the dice.
+ */
+function applyBound(
+  rolled: number[],
+  bound: NonNullable<DiceTerm['bound']>,
+): { results: number[]; kept: number[]; boundKept: boolean } {
+  if (bound.scope === 'total') {
+    const sum = rolled.reduce((a, b) => a + b, 0)
+    const diceWin = bound.mode === 'min' ? sum >= bound.value : sum <= bound.value
+    return {
+      results: [...rolled, bound.value],
+      kept: diceWin ? [...rolled] : [bound.value],
+      boundKept: !diceWin,
+    }
+  }
+  const results: number[] = []
+  const kept: number[] = []
+  let boundKept = false
+  for (const face of rolled) {
+    results.push(face, bound.value)
+    const dieWins = bound.mode === 'min' ? face >= bound.value : face <= bound.value
+    kept.push(dieWins ? face : bound.value)
+    if (!dieWins) boundKept = true
+  }
+  return { results, kept, boundKept }
+}
+
 /** Roll one dice term into its DieGroup: all results, the kept subset, the signed total. */
 function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
-  const results: number[] = []
+  const rolled: number[] = []
   for (let i = 0; i < term.count; i++) {
-    if (term.explode) results.push(...explodeDie(term.sides, rand, term.penetrate))
-    else results.push(rollDie(term.sides, rand))
+    if (term.explode) rolled.push(...explodeDie(term.sides, rand, term.penetrate))
+    else rolled.push(rollDie(term.sides, rand))
   }
-  const kept = keptDice(results, term.keep)
+  const bounded = term.bound ? applyBound(rolled, term.bound) : undefined
+  const results = bounded ? bounded.results : rolled
+  const kept = bounded ? bounded.kept : keptDice(rolled, term.keep)
   const sum = kept.reduce((a, b) => a + b, 0)
   const multiplier = term.multiplier ?? 1
-  const sole = kept.length === 1 ? kept[0] : undefined
+  // A bound has no face, so `1d20min20` must not report a natural 20 on every roll.
+  const sole = kept.length === 1 && !bounded?.boundKept ? kept[0] : undefined
   return {
     sides: term.sides,
     sign: term.sign,
@@ -167,8 +206,8 @@ function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
 
 /**
  * Which of a group's dice counted, aligned to `results` so the UI can dim the ones
- * advantage or a keep rule dropped. Matched one for one, so a tie between two equal
- * dice drops exactly one of them.
+ * advantage, a keep rule or a bound dropped. Matched one for one, so a tie between two
+ * equal dice drops exactly one of them.
  */
 export function keptFlags(group: DieGroup): boolean[] {
   const pool = [...group.kept]

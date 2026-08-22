@@ -412,6 +412,119 @@ describe('group multiplier', () => {
   })
 })
 
+describe('bounds', () => {
+  it('floors a die that rolled under a min', () => {
+    const r = roll('1d6min3', { rand: faceSeq(1) })
+    expect(r.dice[0].results).toEqual([1, 3])
+    expect(r.dice[0].kept).toEqual([3])
+    expect(r.total).toBe(3)
+  })
+
+  it('leaves a die that beat the bound alone', () => {
+    const r = roll('1d6min3', { rand: faceSeq(5) })
+    expect(r.dice[0].results).toEqual([5, 3])
+    expect(r.dice[0].kept).toEqual([5])
+    expect(r.total).toBe(5)
+  })
+
+  it('caps a die that rolled over a max', () => {
+    const r = roll('1d6max4', { rand: faceSeq(6) })
+    expect(r.dice[0].kept).toEqual([4])
+    expect(r.total).toBe(4)
+  })
+
+  // The pool runs face, bound, face, bound.
+  it('gives every die its own copy of the bound', () => {
+    const r = roll('2d6min3', { rand: faceSeq(1, 5) })
+    expect(r.dice[0].results).toEqual([1, 3, 5, 3])
+    expect(r.dice[0].kept).toEqual([3, 5])
+    expect(r.total).toBe(8)
+  })
+
+  it('sets one bound against the sum with total, and keeps all or nothing', () => {
+    const low = roll('2d6totalmin3', { rand: faceSeq(1, 1) })
+    expect(low.dice[0].results).toEqual([1, 1, 3])
+    expect(low.dice[0].kept).toEqual([3])
+    expect(low.total).toBe(3)
+
+    const high = roll('2d6totalmin3', { rand: faceSeq(4, 5) })
+    expect(high.dice[0].kept).toEqual([4, 5])
+    expect(high.total).toBe(9)
+  })
+
+  it('caps the sum with totalmax', () => {
+    const r = roll('2d6totalmax5', { rand: faceSeq(6, 6) })
+    expect(r.dice[0].results).toEqual([6, 6, 5])
+    expect(r.dice[0].kept).toEqual([5])
+    expect(r.total).toBe(5)
+  })
+
+  // A tie goes to the dice, so the record stays about what was rolled.
+  it('keeps the die when it matches the bound exactly', () => {
+    const r = roll('1d6min3', { rand: faceSeq(3) })
+    expect(keptFlags(r.dice[0])).toEqual([true, false])
+  })
+
+  // Otherwise `1d20min20` would report a natural 20 nobody rolled.
+  it('reports no natural face when a bound is what the group kept', () => {
+    const r = roll('1d20min20', { rand: faceSeq(4) })
+    expect(r.dice[0].kept).toEqual([20])
+    expect(r.dice[0].naturalHigh).toBe(false)
+  })
+
+  it('still reports a natural face when the die reached it itself', () => {
+    expect(roll('1d20min20', { rand: faceSeq(20) }).dice[0].naturalHigh).toBe(true)
+  })
+
+  it('reads a natural low off the die under a cap, never off the cap', () => {
+    expect(roll('1d6max1', { rand: faceSeq(1) }).dice[0].naturalLow).toBe(true)
+    expect(roll('1d6max1', { rand: faceSeq(5) }).dice[0].naturalLow).toBe(false)
+  })
+
+  it('multiplies what the bound left, not what the dice showed', () => {
+    expect(roll('2d6totalmin10x2', { rand: faceSeq(1, 1) }).total).toBe(20)
+  })
+
+  it('leaves keptFlags lined up with results', () => {
+    expect(keptFlags(roll('2d6min3', { rand: faceSeq(1, 5) }).dice[0])).toEqual([
+      false,
+      true,
+      true,
+      false,
+    ])
+  })
+
+  // The suffixes are alternatives, so stacking the two would build a term `parseFormula`
+  // itself refuses.
+  it('leaves a bounded d20 alone when the caller forces advantage', () => {
+    const r = roll('1d20min5', { advantage: 'advantage', rand: faceSeq(3) })
+    expect(r.dice[0].results).toEqual([3, 5])
+    expect(r.advantageState).toBe('normal')
+  })
+
+  // Face first, then the group's sign — so a bound on a subtracted group takes more away.
+  it('bounds a subtracted group without losing the sign', () => {
+    expect(roll('-2d6min3', { rand: faceSeq(1, 1) }).total).toBe(-6)
+    expect(roll('10-1d6min3', { rand: faceSeq(1) }).total).toBe(7)
+    expect(roll('2d6+1-1d4min2', { rand: faceSeq(6, 6, 1) }).total).toBe(11)
+    expect(roll('2d6+1-1d4', { rand: faceSeq(6, 6, 1) }).total).toBe(12)
+  })
+
+  // A bound is not a die, so it is not a way past the ceiling on how many there may be.
+  it('leaves the dice ceiling doing its job', () => {
+    const r = roll('1000d6min3', { rand: () => 0 })
+    expect(r.dice[0].results).toHaveLength(2000)
+    expect(r.total).toBe(3000)
+    expect(() => roll('1001d6min3')).toThrow(/at most/)
+  })
+
+  it('keeps the total checkable against what each group kept', () => {
+    const r = roll('2d6min4+3', { rand: faceSeq(2, 6) })
+    expect(r.total).toBe(r.dice.reduce((sum, g) => sum + g.total, 0) + r.modifier)
+    expect(r.total).toBe(13)
+  })
+})
+
 describe('limits', () => {
   // Every entry is parsed before the dice limit can refuse the roll, so the length has
   // to be bounded on its own.
@@ -531,5 +644,13 @@ describe('a polluted Object.prototype', () => {
   it('cannot drop dice with a keep rule', () => {
     pollute('keep', { mode: 'kl', n: 1 })
     expect(roll('4d6', { rand: faceSeq(6, 5, 3, 2) }).dice[0].kept).toEqual([6, 5, 3, 2])
+  })
+
+  // An inherited bound would rewrite what every unbounded group kept.
+  it('cannot bound the dice', () => {
+    pollute('bound', { mode: 'min', value: 6, scope: 'die' })
+    const r = roll('2d6', { rand: faceSeq(1, 2) })
+    expect(r.dice[0].results).toEqual([1, 2])
+    expect(r.total).toBe(3)
   })
 })
