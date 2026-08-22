@@ -6,15 +6,33 @@ Roll dice in JavaScript or TypeScript. Write `2d6+3`, get the total back along w
 die that was rolled.
 
 The randomness comes from the platform's cryptographic random number generator, with
-modulo bias removed. Nothing here adjusts a result.
+modulo bias removed. Nothing here adjusts a result, and nothing here decides what one
+means.
+
+**[rollful.dev/docs](https://rollful.dev/docs) is the reference** — every suffix, every
+result field, every limit, and the HTTP API. This file is the short version.
 
 MIT licence · no dependencies · browser and Node 20 or newer
+
+## Install
+
+This is a [Node.js](https://nodejs.org/en/) module available through the
+[npm registry](https://www.npmjs.com/package/opendice).
+
+Before installing, [download and install Node.js](https://nodejs.org/en/download/).
+Node.js 20 or higher is required.
+
+Installation is done using the
+[`npm install` command](https://docs.npmjs.com/downloading-and-installing-packages-locally):
 
 ```bash
 npm install opendice
 ```
 
-## Your first roll
+pnpm and yarn work the same way. There are no dependencies and no build step: the package
+ships as ES modules with TypeScript types.
+
+## Quick start
 
 ```ts
 import { roll } from 'opendice'
@@ -29,9 +47,39 @@ describes how it was reached.
 
 ```ts
 result.dice[0].results // [5, 3]  — the two dice that were rolled
+result.dice[0].kept //    [5, 3]  — the ones that counted
 result.modifier //        3       — the +3
 result.formula //         '2d6+3' — what you asked for
 ```
+
+Anything a formula cannot mean throws, so text somebody typed is safe to hand straight to
+it.
+
+## The formula language
+
+| You write      | It means                                                 |
+| -------------- | -------------------------------------------------------- |
+| `2d6`          | Roll two six-sided dice and add them up.                 |
+| `1d20+7`       | Roll a d20 and add 7. Use `-7` to subtract.              |
+| `1d8+1d4+3`    | Mix as many dice and numbers as you like.                |
+| `4d6kh3`       | Roll four d6, **k**eep the **h**ighest **3**.            |
+| `4d6kl3`       | Same, but keep the **l**owest 3.                         |
+| `4d6kh`        | Leave the number out and it keeps 1.                     |
+| `2d20adv`      | Roll two d20 and keep the higher one. ("advantage")      |
+| `2d20dis`      | Roll two d20 and keep the lower one. ("disadvantage")    |
+| `2d6min3`      | Every die counts at least 3. `max` caps instead.         |
+| `2d6totalmin3` | The dice **added up** count at least 3. `totalmax` caps. |
+| `1d6!`         | Exploding: a top face rolls again and adds.              |
+| `1d6!p`        | Penetrating: as `!`, but each extra roll counts 1 less.  |
+| `1d6x10`       | Roll a d6, multiply that group by 10.                    |
+| `2d10 fire`    | A label on the end, if you passed `fire` in `tags`.      |
+
+Spaces are ignored and capitals are accepted: `2D6 + 3` works. A suffix binds to its own
+group of dice, never to the whole sum: a `1d6x10+5` that rolled a 3 is 35 and not 55, and
+`2d6totalmin8+1` is never below 9 rather than never below 8.
+
+Full grammar, including which suffixes combine and which do not, at
+**[rollful.dev/docs/reference/grammar](https://rollful.dev/docs/reference/grammar)**.
 
 ## API
 
@@ -44,570 +92,26 @@ result.formula //         '2d6+3' — what you asked for
 | `keptFlags(group)`          | Which dice counted, aligned to the roll order          |
 | `soleDieGroup(result)`      | The dice in a result, if it used only one kind         |
 
----
-
-## `roll(formula, options?)`
-
-```ts
-roll('1d20') //      one twenty-sided die
-roll('3d8') //       three eight-sided dice, added together
-roll('1d20+5') //    one d20, plus 5
-roll('2d6-1') //     two d6, minus 1
-roll('1d78') //      any number of sides, not only the usual ones
-```
-
-### The formula language
-
-| You write      | It means                                                                  |
-| -------------- | ------------------------------------------------------------------------- |
-| `2d6`          | Roll two six-sided dice and add them up.                                  |
-| `1d20+7`       | Roll a d20 and add 7. Use `-7` to subtract.                               |
-| `1d8+1d4+3`    | Mix as many dice and numbers as you like.                                 |
-| `4d6kh3`       | Roll four d6, **k**eep the **h**ighest **3**.                             |
-| `4d6kl3`       | Same, but keep the **l**owest 3.                                          |
-| `4d6kh`        | Leave the number out and it keeps 1, the same as `4d6kh1`. `4d6kl` too.   |
-| `2d20adv`      | Roll two d20 and keep the higher one. ("advantage")                       |
-| `2d20dis`      | Roll two d20 and keep the lower one. ("disadvantage")                     |
-| `4d20adv`      | Roll four d20 and keep the highest — `adv` always keeps exactly one.      |
-| `1d6!`         | Exploding — see [below](#exploding-dice).                                 |
-| `1d6!p`        | Penetrating — exploding, but each extra roll counts 1 less.               |
-| `2d6min3`      | Every die counts at least 3 — see [below](#floors-and-ceilings).          |
-| `2d6max5`      | Every die counts at most 5.                                               |
-| `2d6totalmin3` | The dice **added up** count at least 3. `totalmax` caps the same way.     |
-| `1d6x10`       | Roll a d6, multiply that group by 10 — see [below](#multiplying-a-group). |
-| `2d10 fire`    | A label on the end. See [Labels](#labels) — it is never maths.            |
-
-Spaces are ignored and capitals are accepted: `2D6 + 3` works.
-
-`adv` and `dis` keep exactly one die, so the count says how many are thrown to choose
-between. `1d20adv` asks for one die and gets two, since one die would leave the suffix
-nothing to do: it rolls, and warns once that `2d20adv` is what you meant. A future version
-will refuse it, so write the `2`.
-
-### What you get back
-
-```ts
-const r = roll('2d20adv+5')
-```
-
-| Property         | Example       | Meaning                                        |
-| ---------------- | ------------- | ---------------------------------------------- |
-| `total`          | `22`          | The final number.                              |
-| `dice`           | see below     | One entry per group of dice.                   |
-| `modifier`       | `5`           | All the plain numbers added together.          |
-| `modifiers`      | `[5]`         | Each plain number on its own.                  |
-| `formula`        | `'2d20adv+5'` | What you passed in.                            |
-| `advantageState` | `'advantage'` | `'normal'`, `'advantage'` or `'disadvantage'`. |
-| `tag`            | `undefined`   | The label on the end, if there was one.        |
-
-Each entry in `dice` describes one group:
-
-```ts
-r.dice[0]
-// {
-//   sides: 20,          the kind of die
-//   results: [4, 17],   every die that was rolled
-//   kept: [17],         the ones that counted toward the total
-//   sign: 1,            1 for added, -1 for subtracted (as in '10-1d4')
-//   multiplier: 1,      what the kept dice were multiplied by
-//   total: 17,          what this group contributed
-//   naturalHigh: false, the kept die showed the highest face — see below
-//   naturalLow: false,  the kept die showed a 1
-// }
-```
-
-`results` and `kept` differ whenever dice are discarded — with `adv`/`dis`, or `kh`/`kl`.
-Both are reported so a display can show the dropped die rather than hide it.
-
-`modifier` is the sum of the plain numbers; `modifiers` is the list. A `+1` and a `−6` sum
-to −5, which does not say where it came from — the list lets you print `+1 −6`.
-
-### Options
-
-All optional.
-
-```ts
-roll('1d20+7', {
-  advantage: 'advantage', // or 'disadvantage'
-  bonuses: [2, '1d4'], // extra things to add
-  tags: ['fire', 'cold'], // labels you accept — see below
-  rand: myRandomSource, // your own randomness, for tests
-})
-```
-
-**`advantage`** gives the first plain d20 in the formula advantage or disadvantage: use the
-formula when the roll is fixed, the option when your code decides at run time. It applies to
-a formula already written, so it rolls the second d20 for you — `roll('1d20+7', { advantage:
-'advantage' })` rolls two d20 and keeps the higher, and says nothing, because asking for
-advantage on a plain `1d20` is what the option is for. A formula already asking for more
-than two keeps its own count. If several things in your program would each set it, resolve
-them yourself and pass one answer — this library applies no rules of its own.
-
-**`bonuses`** adds numbers or dice without editing the formula text:
-
-```ts
-roll('1d20+7', { bonuses: [2, '1d4'] }) // rolls 1d20 + 7 + 2 + 1d4
-```
-
-A numeric bonus must be a whole number that stays exact, the same as a `+3` written into a
-formula. A fraction, `NaN` or an infinity throws rather than being folded into the total.
-A roll accepts at most 100 bonuses.
-
-## Exploding dice
-
-A `!` after a die makes it **exploding**: when it lands on its highest face, it is rolled
-again and the new number added. A roll that also lands on the highest face explodes again,
-so there is no maximum.
-
-```ts
-roll('1d6!') // rolled 6, then 4    → results [6, 4],    total 10
-roll('1d6!') // rolled 6, 6, then 2 → results [6, 6, 2], total 14
-roll('1d6!') // rolled 3            → results [3],       total 3
-```
-
-Savage Worlds, Shadowrun and Deadlands all use this.
-
-Every roll in the chain appears in `results`, in the order it happened. A roll equal to the
-number of sides is the one that caused the next.
-
-Each die in a group explodes on its own:
-
-```ts
-roll('3d6!') // first die rolled 6 then 4, the others 2 and 3
-// results: [6, 4, 2, 3], total 15
-```
-
-Two constraints:
-
-- **It does not combine with `kh`, `kl`, `adv` or `dis`.** `4d6kh3!` throws, because "keep
-  the highest three" has no defined meaning once each die is an open-ended chain.
-- **A die explodes at most 100 times.** A fair d6 reaching ten in a row is roughly a
-  one-in-sixty-million event, so the cap exists to stop a loaded random source hanging the
-  process, not to bound fair dice. A one-sided die never explodes.
-
-## Penetrating dice
-
-`!p` is exploding with a penalty: every roll after the first counts 1 less.
-
-```ts
-roll('1d6!p') // rolled 6, then 4    → results [6, 3],    total 9
-roll('1d6!p') // rolled 6, 6, then 3 → results [6, 5, 2], total 13
-roll('1d6!p') // rolled 3            → results [3],       total 3
-```
-
-HackMaster uses this.
-
-The 1 comes off what a roll is worth, not off the face it landed on, so it never shortens a
-chain. On the second line the second roll landed on 6 and is recorded as 5: it was still a
-top face, so it rolled again.
-
-That is also how to read a chain back. The first roll of a die carried on if it equals the
-number of sides; every later one carried on if it is 1 below that.
-
-Three things follow:
-
-- **The first roll of each die is never reduced**, so `1d6!p` is not `1d6!` minus 1. Only
-  the extra rolls lose a point.
-- **A penetrated 1 is recorded as 0.** It is the one case where `results` holds a number
-  below 1, and it ends the chain like any other non-top face.
-- **A die penetrates at most 100 times**, and it does not combine with `kh`, `kl`, `adv` or
-  `dis` — the same two limits as [exploding](#exploding-dice), for the same reasons.
-
-It takes a multiplier, applied last, to the whole chain:
-
-```ts
-roll('1d6!px2') // let it penetrate, then double what the chain came to
-```
-
-## Multiplying a group
-
-`x` followed by a whole number multiplies that group's total:
-
-```ts
-roll('1d6x10') // a d6, times ten: 10, 20, 30, 40, 50 or 60
-roll('2d6x3') //  both dice added up, then tripled
-```
-
-It multiplies **that group of dice**, never the whole sum, so the `+5` below is added
-afterwards:
-
-```ts
-roll('1d6x10+5') // rolled 3 -> 3 x 10 + 5 = 35
-```
-
-This is why there is no `*` and no brackets: a multiplier binds to one group the way `kh3`
-does, so what it applies to is never in question. `5x2` is not a formula — this multiplies
-dice, not arithmetic.
-
-It combines with everything else and always applies last, to whatever the group kept:
-
-```ts
-roll('4d6kh3x2') //  keep the best three, then double them
-roll('2d20advx2') // advantage, then double the die that won
-roll('1d6!x2') //    let it explode, then double the whole chain
-roll('1d6!px2') //   let it penetrate, then double what the chain came to
-```
-
-`multiplier` is reported on the group, so a total can be checked:
-
-```ts
-const g = roll('2d6x3', { rand: faces(2, 4) }).dice[0]
-g.kept //       [2, 4]
-g.multiplier // 3
-g.total //      18
-```
-
-There is no division: it needs a rounding rule — down, to nearest, in whose favour — and
-choosing one would be this library deciding what a roll means. Write `Math.floor(total / 3)`
-yourself.
-
-## Floors and ceilings
-
-`min` sets a value the dice have to beat, `max` one they may not pass:
-
-```ts
-roll('2d6min3') // a die under 3 counts as 3
-roll('2d6max5') // a die over 5 counts as 5
-```
-
-Those apply to **each die on its own**. Write `totalmin` or `totalmax` to set the bound
-against the group's total instead:
-
-```ts
-roll('2d6totalmin3') // the two dice added up count as at least 3
-roll('2d6totalmax5') // and as at most 5
-```
-
-The two are not the same thing. `2d6min3` floors both dice, so the least it can come to
-is 6. `2d6totalmin3` floors the pair once, so the least it can come to is 3.
-
-`totalmin` means **that group's** total, not the roll's. A bound binds to its dice the way
-a multiplier does, so anything added afterwards lands on top of it:
-
-```ts
-roll('2d6totalmin8+1') // the dice count as at least 8, then +1 — so never below 9
-```
-
-On a subtracted group the bound applies to the die, not to what the group contributes, so
-a `min` raises what gets taken away:
-
-```ts
-roll('2d6+1-1d4min2') // the d4 subtracts at least 2, so this reaches 11 rather than 12
-```
-
-Nothing the dice showed is lost. The bound goes into `results` as a value the dice competed
-against, and `kept` says which of them won:
-
-```ts
-const low = roll('1d6min3', { rand: faces(1) }).dice[0]
-low.results // [1, 3] — the die rolled a 1, and met a bound of 3
-low.kept //    [3]    — the bound won
-low.total //   3
-
-const high = roll('1d6min3', { rand: faces(5) }).dice[0]
-high.results // [5, 3]
-high.kept //    [5] — the die won
-high.total //   5
-```
-
-So `total` can still be checked against `kept`, and [`keptFlags`](#keptflagsgroup) marks
-whichever entries lost. A die that ties its bound counts as the die.
-
-A bound must be at least 1, so `1d6min0` and `1d6max0` throw. It does not combine with
-`kh`, `kl`, `adv`, `dis` or `!`, which are alternatives to one another. It does combine
-with a multiplier, and the multiplier still applies last:
-
-```ts
-roll('2d6totalmin10x2') // rolled 1 and 1 -> floored to 10 -> 20
-```
-
-**A bound is not a die.** A group that kept one reports no highest or lowest face, because
-there is no die to report it for: `1d20min20` counts as 20 every time, and none of those is
-a 20 anybody rolled.
-
-## Labels
-
-A formula may end in a word: `2d10+8 fire`. It is carried on the result and never affects
-the maths.
-
-You must declare which words you accept:
-
-```ts
-roll('2d10+8 fire', { tags: ['fire', 'cold'] }).tag // 'fire'
-
-roll('2d10+8 fire') // throws
-```
-
-Pass a list or a `Set`, even for one word. A bare string is refused because JavaScript
-iterates a string as separate letters, so `tags: 'fire'` would accept `f`, `i`, `r` and `e`:
-
-```ts
-roll('2d10+8 fire', { tags: ['fire'] }) // right
-roll('2d10+8 fire', { tags: 'fire' }) //   throws
-```
-
-The library knows a formula can end in a label and nothing about which labels are real —
-"fire" could be a category, a colour, a material — so the list is yours to supply.
-
-An unknown word throws rather than being carried silently: at the end of a formula, a stray
-word is usually a typo.
-
-## Highest and lowest faces
-
-Each group reports whether the die it kept landed on its highest or lowest face:
-
-```ts
-roll('1d20').dice[0].naturalHigh // true if the d20 came up 20
-roll('1d6').dice[0].naturalHigh //  true if the d6 came up 6
-roll('1d78').dice[0].naturalHigh // true if the d78 came up 78
-roll('1d20').dice[0].naturalLow //  true if it came up 1
-```
-
-That is all they report: **what the die showed**. Whether a top face is significant is for
-the caller to decide, so there is nothing to configure.
-
-Both are `false` unless the group kept exactly **one** die:
-
-```ts
-roll('3d6').dice[0].naturalHigh //   always false — three dice counted
-roll('4d6kh1').dice[0].naturalHigh // true if the kept die is a 6
-```
-
-A bound is not a die, so a group that kept one has no face to report:
-
-```ts
-roll('1d20min20').dice[0].naturalHigh // false unless the d20 itself came up 20
-```
-
-When a roll mixes dice, each group answers for itself:
-
-```ts
-const r = roll('1d20+1d4')
-r.dice[0].naturalHigh // the d20
-r.dice[1].naturalHigh // the d4
-```
-
-## Limits
-
-A formula is usually text somebody typed, so each of these throws rather than being
-attempted:
-
-| Limit                                | Why                                                                                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **1,000 dice** in one roll           | Every die is rolled separately, so `99999999d6` stops the program responding rather than producing a roll.                            |
-| **4,294,967,296 sides** on a die     | One random draw covers that many faces. More would mean two draws per die, and the fairness rests on one.                             |
-| **100 bonuses** on one roll          | Each is parsed before the dice can be counted, so the list is bounded too.                                                            |
-| **1,000 characters** in a formula    | Longer than anyone types.                                                                                                             |
-| **100 explosions** on one die        | See [exploding dice](#exploding-dice).                                                                                                |
-| **A total of 9,007,199,254,740,991** | Above that JavaScript stops counting in exact whole numbers, and a total that cannot be exact is refused rather than quietly rounded. |
-
-Bonuses count towards the dice limit:
-
-```ts
-roll('600d6', { bonuses: ['600d6'] }) // throws, as roll('1200d6') does
-```
-
-A keep rule must keep at least one die, so `4d6kh0` throws. Leaving the number out is not
-zero: `4d6kh` keeps one.
-
-A bound must be at least 1, so `1d6min0` and `1d6max0` throw. A `min` counts towards the
-exactness limit above, since it can carry a group past anything its dice could roll.
-
-## A formula has to roll something
-
-Every formula must roll at least one die:
-
-```ts
-roll('2d6+3') // fine
-roll('2+5') //   throws — no dice in it
-roll('0d6') //   throws — a die nobody rolls
-```
-
-Answering `2+5` would mean returning a `total` with an empty `dice` list behind it. To add
-a plain number, put it in the formula or pass it as a bonus:
-
-```ts
-roll('1d20+5')
-roll('1d20', { bonuses: [5] })
-```
-
-## What a formula may contain
-
-Letters, digits, `+`, `-`, `!` and ordinary spaces. Nothing else — not a tab, not a line
-break, not any other Unicode space:
-
-```ts
-roll('2D6 + 3') // fine — spaces and capitals both
-roll('1d\n20') //  throws
-roll('1d6*2') //   throws
-```
-
-This matters because `result.formula` returns the text you passed, verbatim. A line break
-would survive into that field and from there into whatever the roll is written to:
-
-```text
-mallory rolled 1d
-20 = 5
-```
-
-One roll, two lines in the log. The same applies to a CSV row or a database record.
-Refusing the character keeps `formula` a single line of plain text.
-
-It also rules out characters that resemble the ones a formula uses: `4d6Kh3` written with a
-Kelvin sign throws rather than being read as `4d6kh3`.
-
-## Errors
-
-Every error quotes the text it could not read, shortened, so it can be shown to whoever
-typed it:
-
-```ts
-roll('2d6 + x') // Error: Cannot parse "2d6 + x" near "+x"
-roll('1d6*2') //   Error: A dice formula may only contain letters, digits, spaces, "+", "-" and "!", but this one has U+002A
-```
-
-A rejected character is named by its code point rather than repeated, so an error cannot
-carry a payload into wherever you display it. That makes the message safer to show, not
-safe: **escape anything you put on a page**, from here or anywhere else.
-
-## `parseFormula(text, options?)`
-
-Reads a formula and reports what it means, without rolling anything. `roll()` calls it for
-you; call it directly to check a formula before use — usually something a person typed.
-
-```ts
-import { parseFormula } from 'opendice'
-
-function isValid(text: string): boolean {
-  try {
-    parseFormula(text)
-    return true
-  } catch {
-    return false
-  }
-}
-
-isValid('2d6+3') // true
-isValid('two dice') // false
-isValid('5') // false — no dice in it
-```
-
-It throws on anything it cannot read, so a bad formula fails where it was typed rather than
-further along. What it returns:
-
-```ts
-parseFormula('2d6+3')
-// {
-//   source: '2d6+3',
-//   terms: [
-//     { kind: 'dice', sign: 1, count: 2, sides: 6 },
-//     { kind: 'flat', value: 3 },
-//   ],
-// }
-```
-
-`terms` is the formula broken into pieces — enough to describe a formula back to someone
-before they commit to it.
-
-It takes the same `tags` option as `roll()`:
-
-```ts
-parseFormula('2d6 fire', { tags: ['fire'] }).tag // 'fire'
-```
-
-## `rollDie(sides, source?)`
-
-One die, no formula, no result object.
-
-```ts
-import { rollDie } from 'opendice'
-
-rollDie(20) // a number from 1 to 20
-rollDie(6) // a number from 1 to 6
-rollDie(78) // a number from 1 to 78
-```
-
-Same randomness as `roll()`. Throws if `sides` is not a whole number from 1 to
-4,294,967,296 — see [Limits](#limits).
-
-## `cryptoRandom()`
-
-The raw random number everything else is built on: an integer from 0 to 4,294,967,295.
-
-```ts
-import { cryptoRandom } from 'opendice'
-
-cryptoRandom() // 2847193056
-```
-
-Exported so the source of randomness can be inspected or wrapped.
-
-## `keptFlags(group)`
-
-Which dice counted, in the order they were rolled.
-
-```ts
-import { roll, keptFlags } from 'opendice'
-
-const r = roll('2d20adv') // rolled [4, 17], kept [17]
-keptFlags(r.dice[0]) // [false, true]
-```
-
-For display: line the flags up with `results` to grey out the 4 and highlight the 17.
-
-```ts
-const group = r.dice[0]
-const flags = keptFlags(group)
-
-group.results.forEach((value, i) => {
-  console.log(value, flags[i] ? '(counted)' : '(dropped)')
-})
-// 4 (dropped)
-// 17 (counted)
-```
-
-If two discarded dice show the same number, exactly one is marked kept, so the flags always
-match the real count.
-
-## `soleDieGroup(result)`
-
-The dice in a result, when the roll used one kind of die.
-
-```ts
-import { roll, soleDieGroup } from 'opendice'
-
-soleDieGroup(roll('1d20+7')) //  the d20's group — the +7 is not dice
-soleDieGroup(roll('2d6+3')) //   the 2d6 group
-soleDieGroup(roll('1d20+1d6')) // undefined — two kinds of die
-```
-
-For showing the dice on their own with the flat numbers listed beside them. It returns
-`undefined` rather than guessing when a roll mixes kinds of die.
-
-## Testing your own code
-
-Pass your own randomness to make rolls predictable:
-
-```ts
-roll('1d20', { rand: () => 0 }) // always 1
-```
-
-A random source is any function returning a whole number from 0 to 4,294,967,295. The
-lowest number gives the lowest face.
-
-```ts
-// A source that plays back a fixed sequence of faces.
-function faces(...list: number[]) {
-  let i = 0
-  return () => list[i++] - 1
-}
-
-roll('2d6+3', { rand: faces(5, 3) }).total // 11, every time
-```
-
-**Only pass a source your own code chooses.** A result records what the dice showed, never
-which source produced them, so a rigged source is indistinguishable from a fair one in the
-output. If someone using your program can choose the source, they can choose the roll.
+Every signature, option and result field at
+**[rollful.dev/docs/reference/package](https://rollful.dev/docs/reference/package)**.
+
+## Documentation
+
+| Page                                                                                   | What it covers                                  |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [Roll dice in JavaScript](https://rollful.dev/docs)                                    | Start here                                      |
+| [The formula grammar](https://rollful.dev/docs/reference/grammar)                      | Every suffix, and which ones combine            |
+| [Result fields](https://rollful.dev/docs/reference/results)                            | Everything a roll reports, and what it does not |
+| [Limits](https://rollful.dev/docs/reference/limits)                                    | What a formula may ask for before it is refused |
+| [Errors](https://rollful.dev/docs/reference/errors)                                    | What throws, and what each message says         |
+| [The package](https://rollful.dev/docs/reference/package)                              | Exports, types, module format                   |
+| [Versioning](https://rollful.dev/docs/reference/versioning)                            | What a major version means here                 |
+| [Validate a formula someone typed](https://rollful.dev/docs/guides/validate-a-formula) | Checking input before you roll it               |
+| [Show the working in a UI](https://rollful.dev/docs/guides/show-the-working)           | Dimming the dice that were dropped              |
+| [Survive the limits](https://rollful.dev/docs/guides/limits-and-failures)              | Handling a formula the library refuses          |
+| [Why every die comes back](https://rollful.dev/docs/explanation/showing-the-working)   | Why a result is a record, not just a number     |
+| [What Rollful does not know](https://rollful.dev/docs/explanation/fairness)            | What the randomness can and cannot promise      |
+| [Roll dice over HTTP](https://rollful.dev/docs/api)                                    | The same dice without installing anything       |
 
 ## The randomness
 
@@ -626,6 +130,9 @@ All of this applies to `roll()` by default. There is nothing to switch on.
   cannot inject its own randomness, a label, or an extra die. The exception is `rand`, which
   replaces the randomness outright and is yours to guard.
 
+The one thing it cannot promise, and why, at
+**[rollful.dev/docs/explanation/fairness](https://rollful.dev/docs/explanation/fairness)**.
+
 ## What this library does not do
 
 It has no rules of its own. It rolls dice and reports what happened. Whether a high roll is
@@ -637,6 +144,15 @@ caller's.
 Extracted from [OpenFray](https://openfray.app), which routes every roll through one
 function so randomness has a single place to live and be checked. Everything that knew
 about OpenFray's subject matter was left behind. OpenFray is AGPL-3.0; these dice are MIT.
+
+## Contributing
+
+Any constructive contribution is welcome — a bug fix, a new way of rolling, a fix to the
+documentation, a test, a typo.
+
+Everything you need is in [CONTRIBUTING.md](./CONTRIBUTING.md): setup, the commands, the
+code style, and what "done" means. [AGENTS.md](./AGENTS.md) covers the decisions that are
+easy to undo by accident.
 
 ## Licence
 
