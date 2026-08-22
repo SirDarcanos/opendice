@@ -119,6 +119,16 @@ describe('parseFormula', () => {
     expect(parseFormula('5d6kl2').terms[0]).toMatchObject({ keep: { mode: 'kl', n: 2 } })
   })
 
+  // The same rule as the blank count in front of the `d`, which rolls one die.
+  it('keeps one when the keep rule has no count', () => {
+    expect(parseFormula('3d100kh').terms).toEqual(parseFormula('3d100kh1').terms)
+    expect(parseFormula('3d100kl').terms).toEqual(parseFormula('3d100kl1').terms)
+    expect(parseFormula('4d6khx2').terms[0]).toMatchObject({
+      keep: { mode: 'kh', n: 1 },
+      multiplier: 2,
+    })
+  })
+
   it('parses a trailing tag the caller recognises', () => {
     const f = parseFormula('2d10+8 fire', { tags: ['fire', 'cold'] })
     expect(f.tag).toBe('fire')
@@ -232,6 +242,92 @@ describe('limits on what a formula may ask for', () => {
   it('rejects a keep rule that keeps no dice', () => {
     expect(() => parseFormula('4d6kh0')).toThrow(/at least one/)
     expect(() => parseFormula('4d6kl0')).toThrow(/at least one/)
+  })
+})
+
+describe('bounds', () => {
+  it('parses a bound on each die', () => {
+    expect(parseFormula('2d6min3').terms[0]).toMatchObject({
+      bound: { mode: 'min', value: 3, scope: 'die' },
+    })
+    expect(parseFormula('2d6max5').terms[0]).toMatchObject({
+      bound: { mode: 'max', value: 5, scope: 'die' },
+    })
+  })
+
+  it('parses a bound on the total', () => {
+    expect(parseFormula('2d6totalmin3').terms[0]).toMatchObject({
+      bound: { mode: 'min', value: 3, scope: 'total' },
+    })
+    expect(parseFormula('2d6totalmax5').terms[0]).toMatchObject({
+      bound: { mode: 'max', value: 5, scope: 'total' },
+    })
+  })
+
+  it('composes with a group multiplier', () => {
+    expect(parseFormula('2d6totalmin10x2').terms[0]).toMatchObject({
+      bound: { mode: 'min', value: 10, scope: 'total' },
+      multiplier: 2,
+    })
+  })
+
+  // Under 1 a `min` is a floor no die can fall through and a `max` erases the dice.
+  it('refuses a bound below 1', () => {
+    expect(() => parseFormula('1d6min0')).toThrow(/at least 1/)
+    expect(() => parseFormula('1d6max0')).toThrow(/at least 1/)
+    expect(() => parseFormula('1d6totalmin0')).toThrow(/at least 1/)
+  })
+
+  // Unlike a keep rule there is nothing sensible to default to, so the number is required.
+  it('requires a number to bound at', () => {
+    expect(() => parseFormula('2d6min')).toThrow(/Cannot parse/)
+    expect(() => parseFormula('2d6total')).toThrow(/Cannot parse/)
+  })
+
+  // The suffixes are alternatives, the same reason `4d6kh3!` throws.
+  it('does not combine with a keep rule, advantage or an explosion', () => {
+    expect(() => parseFormula('4d6kh3min2')).toThrow()
+    expect(() => parseFormula('2d20advmin5')).toThrow()
+    expect(() => parseFormula('1d6!min2')).toThrow()
+  })
+
+  // Each of these reaches the ceiling by a different route through `largestTotal`, which
+  // is why they are checked one at a time rather than as one case.
+  it('refuses a bound that puts the total past exact whole numbers', () => {
+    expect(() => parseFormula('1d6min9007199254740992')).toThrow(/stop being exact/)
+    expect(() => parseFormula('1d6min9007199254740991+1')).toThrow(/stop being exact/)
+    expect(() => parseFormula('1000d6min9007199254740991')).toThrow(/stop being exact/)
+    expect(() => parseFormula('1d6min4503599627370496x2')).toThrow(/stop being exact/)
+    expect(() => parseFormula('2d6totalmin9007199254740991x2')).toThrow(/stop being exact/)
+    expect(() => parseFormula('1000d6min100000000000000')).toThrow(/stop being exact/)
+  })
+
+  it('accepts a bound that reaches the ceiling exactly', () => {
+    expect(parseFormula('1d6min9007199254740991').terms[0]).toMatchObject({
+      bound: { mode: 'min', value: 9007199254740991 },
+    })
+    // A `max` cannot raise a group at all, so no size of one is refused for the total.
+    expect(parseFormula('1d6max9007199254740991').terms[0]).toMatchObject({
+      bound: { mode: 'max', value: 9007199254740991 },
+    })
+  })
+
+  // The bound is `\d+`, so nothing else reaches `Number`: no sign, no point, no NaN.
+  it('refuses anything but digits as the bound', () => {
+    expect(() => parseFormula('1d6min-3')).toThrow(/Cannot parse/)
+    expect(() => parseFormula('1d6min+3')).toThrow(/Cannot parse/)
+    expect(() => parseFormula('1d6minmin3')).toThrow(/Cannot parse/)
+    expect(() => parseFormula('1d6mintotal3')).toThrow(/Cannot parse/)
+    expect(() => parseFormula('1d6totaltotalmin3')).toThrow(/Cannot parse/)
+    expect(() => parseFormula('1d6min3.5')).toThrow(/may only contain/)
+  })
+
+  // So no spelling of a bound is a way past the checks above.
+  it('reads a bound the way it reads every other number', () => {
+    const plain = parseFormula('2d6min3').terms
+    expect(parseFormula('2d6min0003').terms).toEqual(plain)
+    expect(parseFormula('2D6MIN3').terms).toEqual(plain)
+    expect(parseFormula('2d6 min 3').terms).toEqual(plain)
   })
 })
 

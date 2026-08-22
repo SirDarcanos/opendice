@@ -61,6 +61,32 @@ and settled, and both will come back:
   silently wrong for whichever half of callers meant the other reading. It would also cost
   the flat-sum result model that `modifier`, `modifiers` and `DieGroup.sign` are built on.
 
+A bound (`2d6min3`, `2d6totalmax5`) is in on the same grounds: a floor or a ceiling is a
+way of reading dice, not a claim about what the reading is worth. Four decisions were
+argued and settled, and the first is what makes the rest of them work:
+
+- **A bound joins the pool; it never rewrites a face.** `1d6min3` rolling a 1 reports
+  `results [1, 3]`, `kept [3]` — the bound is a value the die competed against and lost to.
+  So the 1 stays on the record, `kept` stays a subset of `results`, and `total` stays
+  checkable against `kept`. Both alternatives were worked through first and both cost
+  something this one does not: keeping the face and reporting the bound (`results [1]`,
+  `kept [3]`) breaks `keptFlags`, which aligns the two by value and would dim the only
+  entry that counted; writing the bound in as the face (`results [3]`) erases the 1 the way
+  `!p` erases a 6, and there was no reason to pay that here.
+- **`min`/`max` bind to each die, `totalmin`/`totalmax` to the sum.** Per die every face
+  meets its own copy of the bound, so the pool runs face, bound, face, bound and the
+  pairing is positional. Per total the sum meets one copy at the end and keeping is all or
+  nothing. A tie goes to the dice either way, so a die matching its bound is the entry the
+  group reports keeping — which is what the natural-face flags then read.
+- **No `,` and no `!`.** `20,2d20km` is the shape this started as. The comma is not in the
+  character allowlist, and `source` is kept verbatim: a comma forges a column in a CSV roll
+  log exactly as a newline forged a line. `!` as a "bound the sum instead" marker was the
+  next proposal, and `!` is exploding — the most established suffix in the grammar. The
+  marker had to be a word.
+- **`total`, not `tot`.** The result field is called `total`, so a formula and a result say
+  one word for one thing. `adv`, `dis`, `kh` and `kl` are abbreviations callers arrived
+  already knowing; coining a new one is not the same move.
+
 ## The randomness is load-bearing
 
 `src/rng.ts` is the reason to trust this package.
@@ -95,9 +121,21 @@ request.
 
 ## Things that bite
 
-- **`explode` cannot combine with `kh`/`kl`/`adv`/`dis`.** The grammar treats the suffixes as
-  alternatives, so `4d6kh3!` and `4d6kh3!p` both throw. Do not "fix" it without first
-  deciding what "keep the highest three" should mean when each die is an open-ended chain.
+- **`explode` cannot combine with `kh`/`kl`/`adv`/`dis`/`min`/`max`.** The grammar treats the
+  suffixes as alternatives, so `4d6kh3!`, `4d6kh3!p` and `1d6!min2` all throw. Do not "fix"
+  it without first deciding what "keep the highest three" should mean when each die is an
+  open-ended chain.
+- **A bound must not forge a natural face.** `naturalHigh` says a die showed its top face,
+  so `1d20min20` — which keeps a 20 every time — has to report `false` unless a die really
+  rolled one. `rollGroup` gates both flags on the sole kept value having come from a die
+  rather than from the bound. The version without that gate passes every existing test of a
+  rolled natural 20 and reports one on every roll.
+- **A bound raises what a group can total, so `largestTotal` counts it.**
+  `1d6min9007199254740992` reaches a total no d6 can, and the exactness check is the only
+  thing that refuses it. A `max` only ever lowers a group and cannot raise that ceiling.
+- **`RollContext.advantage` skips a bounded term**, the way it already skips one carrying a
+  keep rule. The grammar treats the two as alternatives, so stacking them would build a term
+  `parseFormula` itself would refuse.
 - **`adv`/`dis` does not set the count; the count says how many dice are thrown.** So
   `4d20adv` keeps the best of four. It used to force `count = 2` and discard whatever was
   written, which made `4d20adv` roll two dice silently. A count of 1 is read as 2 and
@@ -129,8 +167,10 @@ request.
   `Object.prototype`. Without it, anything able to pollute that prototype could pick the
   random source or forge a tag, and the roll log would report the forgery as fact. Anything
   the library both creates and later reads an optional field from goes through it.
-- **`results` is flat.** An exploding group's `results` holds every roll it made, so it can
-  be longer than the die count. A roll equal to `sides` is what caused the next one.
+- **`results` is flat, and not every entry is a face.** An exploding group's `results` holds
+  every roll it made, so it can be longer than the die count, and a roll equal to `sides` is
+  what caused the next one. A bounded group's holds the bound too, as a value the dice
+  competed against.
 - **Penetrating records what a roll was worth, not the face it showed.** `!p` stores every
   roll after the first as one less, so `kept` still sums to `total` and a caller can check
   the arithmetic — but a recorded 5 on a d6 was a 6, which is why the chain continues on
@@ -138,6 +178,10 @@ request.
   roll continued at `sides`, every later one at `sides - 1`. Moving the deduction into a
   separate field would keep `results` raw at the cost of that check, and was not taken.
   A penetrated 1 stores 0, the only 0 `results` can hold.
+- **`vitest.config.ts` excludes `.claude/**` for a reason.** A worktree there is a whole
+  second checkout, tests included, and its suite passes — it is testing the code it shipped
+  with. One sat there through two releases, doubling every run and reporting 133 outdated
+  tests as part of the total. CI never sees it, so only a local run can catch it.
 - **`soleDieGroup` counts groups, not dice.** `2d6+3` has one group; `1d20+1d6` has two and
   returns nothing.
 
