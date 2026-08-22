@@ -22,11 +22,17 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.4.0] — 2026-08-22
+
+Two more ways to read dice, and a README that stops repeating the documentation site.
+
 ### Added
 
 - `kh` and `kl` with no number after them keep one die, so `3d100kh` is `3d100kh1`. The
   count was mandatory and a bare `kh` was a parse error, which no reading of the formula
-  explained.
+  explained. `4d6kh0` still throws: leaving the number out is not writing zero.
 - Floors and ceilings. `2d6min3` gives every die a value it has to beat and `2d6max5` one
   it may not pass; `totalmin` and `totalmax` set the bound against the group's total
   instead. The bound goes into `results` as a value the dice competed against rather than
@@ -34,6 +40,12 @@ A rename is not a version, so it has no entry below.
   `kept`. A group that kept a bound reports no highest or lowest face, since a bound is not
   a die. A bound must be at least 1, and does not combine with `kh`, `kl`, `adv`, `dis` or
   `!`.
+
+### Changed
+
+- The README is the short version and [rollful.dev/docs](https://rollful.dev/docs) is the
+  reference. Keeping a full second copy of the documentation in the README meant two places
+  to update and one of them going stale. Nothing about the package changed with it.
 
 ## [1.3.0] — 2026-08-06
 
@@ -199,7 +211,8 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.3.0...HEAD
+[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/SirDarcanos/opendice/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/SirDarcanos/opendice/compare/v1.0.0...v1.1.0
