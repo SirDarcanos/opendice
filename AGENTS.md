@@ -138,6 +138,10 @@ request.
   roll continued at `sides`, every later one at `sides - 1`. Moving the deduction into a
   separate field would keep `results` raw at the cost of that check, and was not taken.
   A penetrated 1 stores 0, the only 0 `results` can hold.
+- **`vitest.config.ts` excludes `.claude/**` for a reason.** A worktree there is a whole
+  second checkout, tests included, and its suite passes — it is testing the code it shipped
+  with. One sat there through two releases, doubling every run and reporting 133 outdated
+  tests as part of the total. CI never sees it, so only a local run can catch it.
 - **`soleDieGroup` counts groups, not dice.** `2d6+3` has one group; `1d20+1d6` has two and
   returns nothing.
 
