@@ -119,6 +119,16 @@ describe('parseFormula', () => {
     expect(parseFormula('5d6kl2').terms[0]).toMatchObject({ keep: { mode: 'kl', n: 2 } })
   })
 
+  // The same rule as the blank count in front of the `d`, which rolls one die.
+  it('keeps one when the keep rule has no count', () => {
+    expect(parseFormula('3d100kh').terms).toEqual(parseFormula('3d100kh1').terms)
+    expect(parseFormula('3d100kl').terms).toEqual(parseFormula('3d100kl1').terms)
+    expect(parseFormula('4d6khx2').terms[0]).toMatchObject({
+      keep: { mode: 'kh', n: 1 },
+      multiplier: 2,
+    })
+  })
+
   it('parses a trailing tag the caller recognises', () => {
     const f = parseFormula('2d10+8 fire', { tags: ['fire', 'cold'] })
     expect(f.tag).toBe('fire')

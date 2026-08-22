@@ -65,6 +65,7 @@ roll('1d78') //      any number of sides, not only the usual ones
 | `1d8+1d4+3` | Mix as many dice and numbers as you like.                                 |
 | `4d6kh3`    | Roll four d6, **k**eep the **h**ighest **3**.                             |
 | `4d6kl3`    | Same, but keep the **l**owest 3.                                          |
+| `4d6kh`     | Leave the number out and it keeps 1, the same as `4d6kh1`. `4d6kl` too.   |
 | `2d20adv`   | Roll two d20 and keep the higher one. ("advantage")                       |
 | `2d20dis`   | Roll two d20 and keep the lower one. ("disadvantage")                     |
 | `4d20adv`   | Roll four d20 and keep the highest — `adv` always keeps exactly one.      |
@@ -333,7 +334,8 @@ Bonuses count towards the dice limit:
 roll('600d6', { bonuses: ['600d6'] }) // throws, as roll('1200d6') does
 ```
 
-A keep rule must keep at least one die, so `4d6kh0` throws.
+A keep rule must keep at least one die, so `4d6kh0` throws. Leaving the number out is not
+zero: `4d6kh` keeps one.
 
 ## A formula has to roll something
 

@@ -7,7 +7,7 @@
  *   NdM              standard             2d6
  *   NdM+K / NdM-K    modifier             1d20+7, 10-1d4
  *   Nd20adv/Nd20dis  advantage/disadv     2d20adv — roll N, keep highest/lowest
- *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3
+ *   NdMkhX / NdMklX  keep highest/lowest  4d6kh3 — a blank X keeps 1
  *   NdM!             exploding            1d6! — a top face rolls again and adds
  *   NdM!p            penetrating          1d6!p — as `!`, but each extra roll counts 1 less
  *   NdMxK            group multiplier     1d6x10 — this group's total, times K
@@ -210,7 +210,9 @@ function diceTerm(
     term.explode = true
     if (suffix === '!p') term.penetrate = true
   } else if (suffix) {
-    const n = Number(suffix.slice(2))
+    // A blank count keeps one, the way a blank count in front of the `d` rolls one die.
+    const written = suffix.slice(2)
+    const n = written === '' ? 1 : Number(written)
     if (n < 1) {
       throw new Error(`A keep rule must keep at least one die, but "${suffix}" keeps none`)
     }
@@ -270,7 +272,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   if (expr === '') throw new Error(`Empty dice formula: "${excerpt(source)}"`)
 
   const terms: Term[] = []
-  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d+|kl\d+|!p?)?(x\d+)?|(\d+))/y
+  const re = /([+-]?)(?:(\d*)d(\d+)(adv|dis|kh\d*|kl\d*|!p?)?(x\d+)?|(\d+))/y
   let pos = 0
   while (pos < expr.length) {
     re.lastIndex = pos

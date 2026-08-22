@@ -22,7 +22,11 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `kh` and `kl` with no number after them keep one die, so `3d100kh` is `3d100kh1`. The
+  count was mandatory and a bare `kh` was a parse error, which no reading of the formula
+  explained. `4d6kh0` still throws: leaving the number out is not writing zero.
 
 ## [1.3.0] — 2026-08-06
 
