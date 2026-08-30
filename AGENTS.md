@@ -130,6 +130,12 @@ request.
   rolled one. `rollGroup` gates both flags on the sole kept value having come from a die
   rather than from the bound. The version without that gate passes every existing test of a
   rolled natural 20 and reports one on every roll.
+- **Every rule that can raise a group's total must raise the conservative ceiling too.**
+  `largestTotal` protects exact arithmetic before any randomness is consumed. It sums
+  maximum unsigned group contributions and absolute modifiers, so signs and cancellation
+  never make unsafe arithmetic acceptable. A total-raising rule needs three tests: a
+  deterministic roll proving its result, acceptance at the largest safe total, and refusal
+  at the first unsafe total. Test its order with any rule it composes with.
 - **A bound raises what a group can total, so `largestTotal` counts it.**
   `1d6min9007199254740992` reaches a total no d6 can, and the exactness check is the only
   thing that refuses it. A `max` only ever lowers a group and cannot raise that ceiling.
