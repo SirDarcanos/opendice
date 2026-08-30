@@ -46,11 +46,16 @@ result.total // 11
 describes how it was reached.
 
 ```ts
-result.dice[0].results // [5, 3]  — the two dice that were rolled
-result.dice[0].kept //    [5, 3]  — the ones that counted
-result.modifier //        3       — the +3
-result.formula //         '2d6+3' — what you asked for
+result.dice[0].results //        [5, 3]       — the two dice that were rolled
+result.dice[0].kept //           [5, 3]       — the ones that counted
+result.dice[0].keptFlags //      [true, true] — one marker for each result
+result.dice[0].advantageState // 'normal'     — how this group was told to keep one die
+result.modifier //               3            — the +3
+result.formula //                '2d6+3'      — what you asked for
 ```
+
+Facts about how dice were read stay on each dice group. See
+[Result fields](https://rollful.dev/docs/reference/results) for the complete result shape.
 
 Anything a formula cannot mean throws, so text somebody typed is safe to hand straight to
 it.
@@ -73,6 +78,9 @@ it.
 | `1d6!p`        | Penetrating: as `!`, but each extra roll counts 1 less.  |
 | `1d6x10`       | Roll a d6, multiply that group by 10.                    |
 | `2d10 fire`    | A label on the end, if you passed `fire` in `tags`.      |
+
+The dice count is literal. `adv` and `dis` need at least two dice to choose between, so
+`1d20adv` throws instead of adding a second die.
 
 Spaces are ignored and capitals are accepted: `2D6 + 3` works. A suffix binds to its own
 group of dice, never to the whole sum: a `1d6x10+5` that rolled a 3 is 35 and not 55, and

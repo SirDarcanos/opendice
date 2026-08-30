@@ -69,9 +69,15 @@ touch `rng.ts`, say in the pull request why the change keeps every face equally 
 
 ## Documentation
 
-If you change behaviour, change the README in the same pull request, and **run the examples
-you write** against the built package. Errors caught that way already: a field that did not
-exist, and a sample result that could not have happened.
+Update the documentation that describes any behaviour you change. Keep the README to the
+quick start, formula overview and links. Detailed signatures, options, result fields and
+limits live on [rollful.dev](https://rollful.dev/docs), so change those pages instead of
+copying their reference material into this file. If those pages live in another repository,
+link their accompanying change in the pull request.
+
+Update the README when one of its own claims, examples or links changes. **Run every example
+you write** against the built package. This check has caught a field that did not exist and a
+sample result that could not have happened.
 
 ## Commits
 
