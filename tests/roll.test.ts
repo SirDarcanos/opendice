@@ -21,7 +21,8 @@ describe('roll', () => {
     expect(r.dice[0].kept).toEqual([3, 5])
     expect(r.modifier).toBe(4)
     expect(r.total).toBe(12)
-    expect(r.advantageState).toBe('normal')
+    expect(r.dice[0].advantageState).toBe('normal')
+    expect('advantageState' in r).toBe(false)
   })
 
   it('reports the highest face on the kept die', () => {
@@ -73,14 +74,19 @@ describe('roll', () => {
     expect(r.dice[0].results).toEqual([4, 18])
     expect(r.dice[0].kept).toEqual([18])
     expect(r.total).toBe(23)
-    expect(r.advantageState).toBe('advantage')
+    expect(r.dice[0].advantageState).toBe('advantage')
   })
 
   it('keeps the lowest on disadvantage', () => {
     const r = roll('2d20dis+5', { rand: faceSeq(4, 18) })
     expect(r.dice[0].kept).toEqual([4])
     expect(r.total).toBe(9)
-    expect(r.advantageState).toBe('disadvantage')
+    expect(r.dice[0].advantageState).toBe('disadvantage')
+  })
+
+  it('keeps mixed advantage states local to their dice groups', () => {
+    const r = roll('2d20adv+2d20dis', { rand: faceSeq(4, 18, 7, 12) })
+    expect(r.dice.map((group) => group.advantageState)).toEqual(['advantage', 'disadvantage'])
   })
 
   // Advantage is "keep the best one", whatever the count. Three dice and four dice are
@@ -94,7 +100,7 @@ describe('roll', () => {
 
     const d = roll('3d20dis', { rand: faceSeq(9, 15, 2) })
     expect(d.dice[0].kept).toEqual([2])
-    expect(d.advantageState).toBe('disadvantage')
+    expect(d.dice[0].advantageState).toBe('disadvantage')
   })
 
   it('refuses a single-die advantage formula before rolling', () => {
@@ -113,6 +119,7 @@ describe('roll', () => {
   it('keeps the highest N (4d6kh3)', () => {
     const r = roll('4d6kh3', { rand: faceSeq(1, 5, 3, 6) })
     expect(r.dice[0].kept).toEqual([6, 5, 3])
+    expect(r.dice[0].advantageState).toBe('normal')
     expect(r.total).toBe(14)
   })
 
@@ -159,13 +166,13 @@ describe('roll', () => {
     const r = roll('1d20+5', { advantage: 'advantage', rand: faceSeq(4, 18) })
     expect(r.dice[0].kept).toEqual([18])
     expect(r.total).toBe(23)
-    expect(r.advantageState).toBe('advantage')
+    expect(r.dice[0].advantageState).toBe('advantage')
   })
 
   it('applies disadvantage from context', () => {
     const r = roll('1d20+5', { advantage: 'disadvantage', rand: faceSeq(4, 18) })
     expect(r.dice[0].kept).toEqual([4])
-    expect(r.advantageState).toBe('disadvantage')
+    expect(r.dice[0].advantageState).toBe('disadvantage')
   })
 
   // The option asks for advantage on a formula already written, so one die is a request
@@ -544,7 +551,7 @@ describe('bounds', () => {
   it('leaves a bounded d20 alone when the caller forces advantage', () => {
     const r = roll('1d20min5', { advantage: 'advantage', rand: faceSeq(3) })
     expect(r.dice[0].results).toEqual([3, 5])
-    expect(r.advantageState).toBe('normal')
+    expect(r.dice[0].advantageState).toBe('normal')
   })
 
   // Face first, then the group's sign — so a bound on a subtracted group takes more away.
@@ -676,7 +683,7 @@ describe('a polluted Object.prototype', () => {
     // faceSeq holds one face, so a second die would throw rather than quietly appear.
     const r = roll('1d20', { rand: faceSeq(11) })
     expect(r.dice[0].results).toEqual([11])
-    expect(r.advantageState).toBe('normal')
+    expect(r.dice[0].advantageState).toBe('normal')
   })
 
   it('cannot add bonuses of its own', () => {

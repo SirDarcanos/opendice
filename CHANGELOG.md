@@ -32,6 +32,11 @@ Reserved for 2.0.0 because `DieGroup` gains a required result field. No release 
 
 ### Changed
 
+- Advantage state now belongs to each dice group. `DieGroup.advantageState` is required and
+  `RollResult.advantageState` has been removed, so a formula containing both `adv` and `dis`
+  keeps both facts instead of whichever group was evaluated last. Equivalent `kh` and `kl`
+  keep rules report `normal` because they were not explicitly described as advantage or
+  disadvantage.
 - `adv` and `dis` now require a written dice count of at least 2. `1d20adv` and `d20dis`
   throw instead of silently rolling two dice and warning; write `2d20adv` and `2d20dis`.
   `RollContext.advantage` still adds a second die to a plain `1d20` because that option

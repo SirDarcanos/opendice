@@ -139,6 +139,10 @@ request.
 - **A bound raises what a group can total, so `largestTotal` counts it.**
   `1d6min9007199254740992` reaches a total no d6 can, and the exactness check is the only
   thing that refuses it. A `max` only ever lowers a group and cannot raise that ceiling.
+- **Advantage state belongs to each dice group.** One roll can contain both `adv` and `dis`,
+  so a roll-wide field loses whichever reading came first. A keep rule that happens to select
+  the same value still reports `normal`; advantage state records an explicit instruction,
+  never an inference from the kept values.
 - **`RollContext.advantage` skips a bounded term**, the way it already skips one carrying a
   keep rule. The grammar treats the two as alternatives, so stacking them would build a term
   `parseFormula` itself would refuse.

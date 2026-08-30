@@ -34,6 +34,8 @@ export interface DieGroup {
   /** One kept marker per result, aligned by position. */
   keptFlags: boolean[]
   kept: number[]
+  /** How this group was explicitly told to keep one die, never inferred from a keep rule. */
+  advantageState: AdvantageState
   /**
    * What this group's kept dice were multiplied by, 1 unless the formula said otherwise.
    * Reported so `total` can be checked against `kept` rather than taken on trust.
@@ -59,7 +61,6 @@ export interface RollResult {
   /** Each flat modifier separately, in order, so `+1 -6` can be shown rather than `-5`. */
   modifiers: number[]
   total: number
-  advantageState: AdvantageState
   /** The formula's trailing tag, when it carried one the caller recognises. */
   tag?: string
 }
@@ -226,6 +227,7 @@ function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
     results: results.map((result) => result.value),
     keptFlags: results.map((result) => keptSet.has(result)),
     kept: keptValues,
+    advantageState: term.advantage ?? 'normal',
     multiplier,
     total: term.sign * sum * multiplier,
     naturalHigh: sole === term.sides,
@@ -277,7 +279,6 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
   const modifiers: number[] = []
   let modifier = 0
   let total = 0
-  let advantageState: AdvantageState = 'normal'
 
   for (const term of terms) {
     if (term.kind === 'flat') {
@@ -286,7 +287,6 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
       total += term.value
       continue
     }
-    if (term.advantage) advantageState = term.advantage
     const group = rollGroup(term, rand)
     total += group.total
     dice.push(group)
@@ -298,7 +298,6 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
     modifier,
     modifiers,
     total,
-    advantageState,
     ...(parsed.tag !== undefined ? { tag: parsed.tag } : {}),
   })
 }

@@ -36,6 +36,10 @@ _Avoid_: Selection guess, kept value
 A way of reading a dice group that keeps a stated number of its highest or lowest faces. Earlier dice win when equal faces meet the cutoff.
 _Avoid_: Bound
 
+**Advantage state**:
+How one dice group was explicitly told to keep one die: the highest, the lowest, or neither. It comes from `adv` or `dis` in the dice formula or from roll context, not from an equivalent keep rule.
+_Avoid_: Roll-wide advantage, inferred advantage
+
 **Bound**:
 A minimum or maximum value that competes with dice instead of rewriting their faces. A bound may compete with each die separately or with the group's sum.
 _Avoid_: Modifier, replacement face
