@@ -13,13 +13,7 @@
   "configuration": {
     "samples": 7,
     "warmups": 2,
-    "bufferSizes": [
-      1,
-      16,
-      64,
-      256,
-      1024
-    ]
+    "bufferSizes": [1, 16, 64, 256, 1024]
   },
   "checksum": 1149936703,
   "rows": [
@@ -27,450 +21,210 @@
       "metric": "cold-source",
       "candidate": "one-word",
       "operations": 20000,
-      "samplesMs": [
-        4,
-        3,
-        4,
-        3,
-        4,
-        6,
-        3
-      ],
+      "samplesMs": [4, 3, 4, 3, 4, 6, 3],
       "medianNsPerOperation": 200
     },
     {
       "metric": "cold-source",
       "candidate": "buffer-1",
       "operations": 20000,
-      "samplesMs": [
-        8,
-        4,
-        4,
-        4,
-        4,
-        3,
-        4
-      ],
+      "samplesMs": [8, 4, 4, 4, 4, 3, 4],
       "medianNsPerOperation": 200
     },
     {
       "metric": "cold-source",
       "candidate": "buffer-16",
       "operations": 20000,
-      "samplesMs": [
-        4,
-        4,
-        3,
-        5,
-        4,
-        4,
-        4
-      ],
+      "samplesMs": [4, 4, 3, 5, 4, 4, 4],
       "medianNsPerOperation": 200
     },
     {
       "metric": "cold-source",
       "candidate": "buffer-64",
       "operations": 20000,
-      "samplesMs": [
-        7,
-        12,
-        6,
-        5,
-        5,
-        6,
-        5
-      ],
+      "samplesMs": [7, 12, 6, 5, 5, 6, 5],
       "medianNsPerOperation": 300
     },
     {
       "metric": "cold-source",
       "candidate": "buffer-256",
       "operations": 20000,
-      "samplesMs": [
-        9,
-        9,
-        10,
-        10,
-        17,
-        9,
-        10
-      ],
+      "samplesMs": [9, 9, 10, 10, 17, 9, 10],
       "medianNsPerOperation": 500
     },
     {
       "metric": "cold-source",
       "candidate": "buffer-1024",
       "operations": 20000,
-      "samplesMs": [
-        23,
-        23,
-        22,
-        24,
-        23,
-        23,
-        26
-      ],
+      "samplesMs": [23, 23, 22, 24, 23, 23, 26],
       "medianNsPerOperation": 1150
     },
     {
       "metric": "random-word",
       "candidate": "one-word",
       "operations": 200000,
-      "samplesMs": [
-        35,
-        38,
-        35,
-        35,
-        37,
-        36,
-        35
-      ],
+      "samplesMs": [35, 38, 35, 35, 37, 36, 35],
       "medianNsPerOperation": 175
     },
     {
       "metric": "random-word",
       "candidate": "buffer-1",
       "operations": 200000,
-      "samplesMs": [
-        11,
-        11,
-        10,
-        9,
-        10,
-        9,
-        10
-      ],
+      "samplesMs": [11, 11, 10, 9, 10, 9, 10],
       "medianNsPerOperation": 50
     },
     {
       "metric": "random-word",
       "candidate": "buffer-16",
       "operations": 200000,
-      "samplesMs": [
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        2
-      ],
+      "samplesMs": [2, 2, 2, 2, 2, 2, 2],
       "medianNsPerOperation": 10
     },
     {
       "metric": "random-word",
       "candidate": "buffer-64",
       "operations": 200000,
-      "samplesMs": [
-        1,
-        2,
-        2,
-        1,
-        2,
-        2,
-        1
-      ],
+      "samplesMs": [1, 2, 2, 1, 2, 2, 1],
       "medianNsPerOperation": 10
     },
     {
       "metric": "random-word",
       "candidate": "buffer-256",
       "operations": 200000,
-      "samplesMs": [
-        2,
-        1,
-        2,
-        1,
-        2,
-        1,
-        2
-      ],
+      "samplesMs": [2, 1, 2, 1, 2, 1, 2],
       "medianNsPerOperation": 10
     },
     {
       "metric": "random-word",
       "candidate": "buffer-1024",
       "operations": 200000,
-      "samplesMs": [
-        1,
-        2,
-        1,
-        2,
-        1,
-        2,
-        1
-      ],
+      "samplesMs": [1, 2, 1, 2, 1, 2, 1],
       "medianNsPerOperation": 5
     },
     {
       "metric": "roll-d20",
       "candidate": "one-word",
       "operations": 200000,
-      "samplesMs": [
-        36,
-        35,
-        34,
-        35,
-        34,
-        42,
-        40
-      ],
+      "samplesMs": [36, 35, 34, 35, 34, 42, 40],
       "medianNsPerOperation": 175
     },
     {
       "metric": "roll-d20",
       "candidate": "buffer-1",
       "operations": 200000,
-      "samplesMs": [
-        11,
-        12,
-        11,
-        10,
-        11,
-        11,
-        11
-      ],
+      "samplesMs": [11, 12, 11, 10, 11, 11, 11],
       "medianNsPerOperation": 55
     },
     {
       "metric": "roll-d20",
       "candidate": "buffer-16",
       "operations": 200000,
-      "samplesMs": [
-        3,
-        3,
-        3,
-        3,
-        3,
-        3,
-        3
-      ],
+      "samplesMs": [3, 3, 3, 3, 3, 3, 3],
       "medianNsPerOperation": 15
     },
     {
       "metric": "roll-d20",
       "candidate": "buffer-64",
       "operations": 200000,
-      "samplesMs": [
-        3,
-        2,
-        3,
-        2,
-        3,
-        3,
-        2
-      ],
+      "samplesMs": [3, 2, 3, 2, 3, 3, 2],
       "medianNsPerOperation": 15
     },
     {
       "metric": "roll-d20",
       "candidate": "buffer-256",
       "operations": 200000,
-      "samplesMs": [
-        2,
-        3,
-        3,
-        2,
-        2,
-        3,
-        2
-      ],
+      "samplesMs": [2, 3, 3, 2, 2, 3, 2],
       "medianNsPerOperation": 10
     },
     {
       "metric": "roll-d20",
       "candidate": "buffer-1024",
       "operations": 200000,
-      "samplesMs": [
-        2,
-        3,
-        2,
-        3,
-        3,
-        2,
-        3
-      ],
+      "samplesMs": [2, 3, 2, 3, 3, 2, 3],
       "medianNsPerOperation": 15
     },
     {
       "metric": "roll-2d6+3",
       "candidate": "one-word",
       "operations": 20000,
-      "samplesMs": [
-        24,
-        22,
-        23,
-        22,
-        22,
-        22,
-        24
-      ],
+      "samplesMs": [24, 22, 23, 22, 22, 22, 24],
       "medianNsPerOperation": 1100
     },
     {
       "metric": "roll-2d6+3",
       "candidate": "buffer-1",
       "operations": 20000,
-      "samplesMs": [
-        16,
-        17,
-        17,
-        17,
-        17,
-        16,
-        17
-      ],
+      "samplesMs": [16, 17, 17, 17, 17, 16, 17],
       "medianNsPerOperation": 850
     },
     {
       "metric": "roll-2d6+3",
       "candidate": "buffer-16",
       "operations": 20000,
-      "samplesMs": [
-        15,
-        16,
-        15,
-        15,
-        16,
-        16,
-        16
-      ],
+      "samplesMs": [15, 16, 15, 15, 16, 16, 16],
       "medianNsPerOperation": 800
     },
     {
       "metric": "roll-2d6+3",
       "candidate": "buffer-64",
       "operations": 20000,
-      "samplesMs": [
-        15,
-        15,
-        15,
-        21,
-        23,
-        30,
-        20
-      ],
+      "samplesMs": [15, 15, 15, 21, 23, 30, 20],
       "medianNsPerOperation": 1000
     },
     {
       "metric": "roll-2d6+3",
       "candidate": "buffer-256",
       "operations": 20000,
-      "samplesMs": [
-        14,
-        17,
-        19,
-        15,
-        15,
-        15,
-        14
-      ],
+      "samplesMs": [14, 17, 19, 15, 15, 15, 14],
       "medianNsPerOperation": 750
     },
     {
       "metric": "roll-2d6+3",
       "candidate": "buffer-1024",
       "operations": 20000,
-      "samplesMs": [
-        15,
-        15,
-        15,
-        14,
-        15,
-        15,
-        14
-      ],
+      "samplesMs": [15, 15, 15, 14, 15, 15, 14],
       "medianNsPerOperation": 750
     },
     {
       "metric": "roll-1000d6",
       "candidate": "one-word",
       "operations": 100,
-      "samplesMs": [
-        24,
-        23,
-        23,
-        24,
-        23,
-        25,
-        23
-      ],
+      "samplesMs": [24, 23, 23, 24, 23, 25, 23],
       "medianNsPerOperation": 230000
     },
     {
       "metric": "roll-1000d6",
       "candidate": "buffer-1",
       "operations": 100,
-      "samplesMs": [
-        10,
-        11,
-        10,
-        11,
-        10,
-        11,
-        11
-      ],
+      "samplesMs": [10, 11, 10, 11, 10, 11, 11],
       "medianNsPerOperation": 110000
     },
     {
       "metric": "roll-1000d6",
       "candidate": "buffer-16",
       "operations": 100,
-      "samplesMs": [
-        6,
-        7,
-        7,
-        7,
-        7,
-        7,
-        7
-      ],
+      "samplesMs": [6, 7, 7, 7, 7, 7, 7],
       "medianNsPerOperation": 70000
     },
     {
       "metric": "roll-1000d6",
       "candidate": "buffer-64",
       "operations": 100,
-      "samplesMs": [
-        7,
-        6,
-        7,
-        7,
-        6,
-        7,
-        6
-      ],
+      "samplesMs": [7, 6, 7, 7, 6, 7, 6],
       "medianNsPerOperation": 70000
     },
     {
       "metric": "roll-1000d6",
       "candidate": "buffer-256",
       "operations": 100,
-      "samplesMs": [
-        7,
-        6,
-        7,
-        7,
-        6,
-        6,
-        7
-      ],
+      "samplesMs": [7, 6, 7, 7, 6, 6, 7],
       "medianNsPerOperation": 70000
     },
     {
       "metric": "roll-1000d6",
       "candidate": "buffer-1024",
       "operations": 100,
-      "samplesMs": [
-        7,
-        6,
-        6,
-        7,
-        7,
-        6,
-        6
-      ],
+      "samplesMs": [7, 6, 6, 7, 7, 6, 6],
       "medianNsPerOperation": 60000
     }
   ]
