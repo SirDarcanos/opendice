@@ -22,7 +22,20 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
-Nothing yet.
+Reserved for 2.0.0 because `DieGroup` gains a required result field. No release is being cut yet.
+
+### Added
+
+- Every dice group now reports `keptFlags`, one boolean per entry in `results`. The markers
+  preserve which occurrence counted when a die and a bound recorded the same number.
+  `results` and `kept` keep their existing contents and order.
+
+### Fixed
+
+- `keptFlags(group)` now reads the markers recorded during the roll instead of matching
+  equal numbers afterward. It previously marked the wrong entries when equal values from
+  different per-die or total bounds did not share the same outcome. Existing calls keep
+  working, and old objects without recorded markers retain the former best-effort matching.
 
 ## [1.4.0] — 2026-08-22
 

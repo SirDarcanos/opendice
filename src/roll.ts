@@ -31,6 +31,8 @@ export interface DieGroup {
    * when the formula set one — so not every entry is a face something showed.
    */
   results: number[]
+  /** One kept marker per result, aligned by position. */
+  keptFlags: boolean[]
   kept: number[]
   /**
    * What this group's kept dice were multiplied by, 1 unless the formula said otherwise.
@@ -138,12 +140,24 @@ function explodeDie(sides: number, rand: RandomSource, penetrate = false): numbe
   return chain
 }
 
-/** Apply a keep rule: the n highest (kh) or lowest (kl) results; no rule keeps them all. */
-function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
+interface RecordedValue {
+  value: number
+  origin: 'die' | 'bound'
+}
+
+/** Apply a keep rule to recorded values; earlier dice win equal-value cutoffs. */
+function keptDice(results: RecordedValue[], keep: DiceTerm['keep']): RecordedValue[] {
   if (!keep) return results
-  const desc = [...results].sort((a, b) => b - a)
+  const desc = results
+    .map((result, index) => ({ result, index }))
+    .sort(
+      (a, b) =>
+        b.result.value - a.result.value ||
+        (keep.mode === 'kh' ? a.index - b.index : b.index - a.index),
+    )
   const n = Math.min(keep.n, results.length)
-  return keep.mode === 'kh' ? desc.slice(0, n) : desc.slice(results.length - n)
+  const selected = keep.mode === 'kh' ? desc.slice(0, n) : desc.slice(results.length - n)
+  return selected.map(({ result }) => result)
 }
 
 /**
@@ -154,28 +168,39 @@ function keptDice(results: number[], keep: DiceTerm['keep']): number[] {
  * meets one copy at the end and keeping is all or nothing. A tie goes to the dice.
  */
 function applyBound(
-  rolled: number[],
+  rolled: RecordedValue[],
   bound: NonNullable<DiceTerm['bound']>,
-): { results: number[]; kept: number[]; boundKept: boolean } {
+): { results: RecordedValue[]; kept: RecordedValue[] } {
   if (bound.scope === 'total') {
-    const sum = rolled.reduce((a, b) => a + b, 0)
+    const sum = rolled.reduce((total, result) => total + result.value, 0)
+    const boundResult = { value: bound.value, origin: 'bound' } as const
     const diceWin = bound.mode === 'min' ? sum >= bound.value : sum <= bound.value
     return {
-      results: [...rolled, bound.value],
-      kept: diceWin ? [...rolled] : [bound.value],
-      boundKept: !diceWin,
+      results: [...rolled, boundResult],
+      kept: diceWin ? [...rolled] : [boundResult],
     }
   }
-  const results: number[] = []
-  const kept: number[] = []
-  let boundKept = false
-  for (const face of rolled) {
-    results.push(face, bound.value)
-    const dieWins = bound.mode === 'min' ? face >= bound.value : face <= bound.value
-    kept.push(dieWins ? face : bound.value)
-    if (!dieWins) boundKept = true
+  const results: RecordedValue[] = []
+  const kept: RecordedValue[] = []
+  for (const dieResult of rolled) {
+    const boundResult = { value: bound.value, origin: 'bound' } as const
+    results.push(dieResult, boundResult)
+    const dieWins =
+      bound.mode === 'min' ? dieResult.value >= bound.value : dieResult.value <= bound.value
+    kept.push(dieWins ? dieResult : boundResult)
   }
-  return { results, kept, boundKept }
+  return { results, kept }
+}
+
+/** Match kept values to the first equal result that has not already been matched. */
+function matchKept(results: number[], kept: number[]): boolean[] {
+  const pool = [...kept]
+  return results.map((value) => {
+    const i = pool.indexOf(value)
+    if (i === -1) return false
+    pool.splice(i, 1)
+    return true
+  })
 }
 
 /** Roll one dice term into its DieGroup: all results, the kept subset, the signed total. */
@@ -185,18 +210,22 @@ function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
     if (term.explode) rolled.push(...explodeDie(term.sides, rand, term.penetrate))
     else rolled.push(rollDie(term.sides, rand))
   }
-  const bounded = term.bound ? applyBound(rolled, term.bound) : undefined
-  const results = bounded ? bounded.results : rolled
-  const kept = bounded ? bounded.kept : keptDice(rolled, term.keep)
-  const sum = kept.reduce((a, b) => a + b, 0)
+  const rolledValues: RecordedValue[] = rolled.map((value) => ({ value, origin: 'die' }))
+  const bounded = term.bound ? applyBound(rolledValues, term.bound) : undefined
+  const results = bounded ? bounded.results : rolledValues
+  const kept = bounded ? bounded.kept : keptDice(rolledValues, term.keep)
+  const keptSet = new Set(kept)
+  const keptValues = kept.map((result) => result.value)
+  const sum = keptValues.reduce((a, b) => a + b, 0)
   const multiplier = term.multiplier ?? 1
   // A bound has no face, so `1d20min20` must not report a natural 20 on every roll.
-  const sole = kept.length === 1 && !bounded?.boundKept ? kept[0] : undefined
+  const sole = kept.length === 1 && kept[0].origin === 'die' ? kept[0].value : undefined
   return {
     sides: term.sides,
     sign: term.sign,
-    results,
-    kept,
+    results: results.map((result) => result.value),
+    keptFlags: results.map((result) => keptSet.has(result)),
+    kept: keptValues,
     multiplier,
     total: term.sign * sum * multiplier,
     naturalHigh: sole === term.sides,
@@ -205,18 +234,15 @@ function rollGroup(term: DiceTerm, rand: RandomSource): DieGroup {
 }
 
 /**
- * Which of a group's dice counted, aligned to `results` so the UI can dim the ones
- * advantage, a keep rule or a bound dropped. Matched one for one, so a tie between two
- * equal dice drops exactly one of them.
+ * Which of a group's recorded values counted, aligned to `results` so a caller can dim
+ * the ones advantage, a keep rule or a bound dropped. New groups carry exact markers;
+ * old objects fall back to matching equal values one for one.
  */
-export function keptFlags(group: DieGroup): boolean[] {
-  const pool = [...group.kept]
-  return group.results.map((value) => {
-    const i = pool.indexOf(value)
-    if (i === -1) return false
-    pool.splice(i, 1)
-    return true
-  })
+export function keptFlags(
+  group: Pick<DieGroup, 'results' | 'kept'> & Partial<Pick<DieGroup, 'keptFlags'>>,
+): boolean[] {
+  const stored = ownProperties(group).keptFlags
+  return stored === undefined ? matchKept(group.results, group.kept) : [...stored]
 }
 
 /**

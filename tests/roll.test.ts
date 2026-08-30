@@ -222,9 +222,35 @@ describe('keptFlags', () => {
     expect(keptFlags(r.dice[0])).toEqual([true, false])
   })
 
-  it('marks every die when none was dropped', () => {
-    const r = roll('2d6', { rand: faceSeq(3, 5) })
-    expect(keptFlags(r.dice[0])).toEqual([true, true])
+  it('keeps the earlier die at an equal-value cutoff', () => {
+    const group = roll('3d6kh2', { rand: faceSeq(4, 4, 6) }).dice[0]
+    expect(group.kept).toEqual([6, 4])
+    expect(group.keptFlags).toEqual([true, false, true])
+  })
+
+  it('records a kept marker beside every result', () => {
+    const group = roll('2d6', { rand: faceSeq(3, 5) }).dice[0]
+    expect(group.keptFlags).toEqual([true, true])
+    expect(keptFlags(group)).toEqual([true, true])
+  })
+
+  it('returns a copy of the recorded markers', () => {
+    const group = roll('1d6', { rand: faceSeq(3) }).dice[0]
+    const flags = keptFlags(group)
+    flags[0] = false
+    expect(group.keptFlags).toEqual([true])
+  })
+
+  it('matches values for an old group with no recorded markers', () => {
+    expect(keptFlags({ results: [4, 4], kept: [4] })).toEqual([true, false])
+  })
+
+  it('ignores inherited markers on an old group', () => {
+    const group = Object.assign(Object.create({ keptFlags: [false] }), {
+      results: [4],
+      kept: [4],
+    }) as { results: number[]; kept: number[] }
+    expect(keptFlags(group)).toEqual([true])
   })
 })
 
@@ -247,6 +273,7 @@ describe('exploding dice', () => {
     // 6 explodes into 4: the chain stops because 4 is not a top face.
     const r = roll('1d6!', { rand: faceSeq(6, 4) })
     expect(r.dice[0].results).toEqual([6, 4])
+    expect(r.dice[0].keptFlags).toEqual([true, true])
     expect(r.total).toBe(10)
   })
 
@@ -311,6 +338,7 @@ describe('penetrating dice', () => {
   it('goes on from a top face that was penetrated', () => {
     const r = roll('1d6!p', { rand: faceSeq(6, 6, 3) })
     expect(r.dice[0].results).toEqual([6, 5, 2])
+    expect(r.dice[0].keptFlags).toEqual([true, true, true])
     expect(r.total).toBe(13)
   })
 
@@ -459,6 +487,30 @@ describe('bounds', () => {
     expect(r.total).toBe(5)
   })
 
+  it('marks a total bound instead of an equal die when the bound wins', () => {
+    const group = roll('2d6totalmax5', { rand: faceSeq(5, 1) }).dice[0]
+    expect(group.results).toEqual([5, 1, 5])
+    expect(group.keptFlags).toEqual([false, false, true])
+  })
+
+  it('marks the dice instead of an equal total bound when the dice tie it', () => {
+    const group = roll('2d6totalmin6', { rand: faceSeq(3, 3) }).dice[0]
+    expect(group.keptFlags).toEqual([true, true, false])
+  })
+
+  it('records which equal die and bound occurrences counted', () => {
+    const group = roll('2d6min3', { rand: faceSeq(3, 2) }).dice[0]
+    expect(group.results).toEqual([3, 3, 2, 3])
+    expect(group.kept).toEqual([3, 3])
+    expect(group.keptFlags).toEqual([true, false, false, true])
+    expect(keptFlags(group)).toEqual([true, false, false, true])
+  })
+
+  it('records equal occurrences under a per-die maximum', () => {
+    const group = roll('2d6max3', { rand: faceSeq(3, 4) }).dice[0]
+    expect(group.keptFlags).toEqual([true, false, false, true])
+  })
+
   // A tie goes to the dice, so the record stays about what was rolled.
   it('keeps the die when it matches the bound exactly', () => {
     const r = roll('1d6min3', { rand: faceSeq(3) })
@@ -575,6 +627,7 @@ describe('negative and signed terms', () => {
   it('keeps the highest of a subtracted advantage roll, then subtracts it', () => {
     const r = roll('-2d20adv', { rand: faceSeq(4, 18) })
     expect(r.dice[0].kept).toEqual([18])
+    expect(r.dice[0].keptFlags).toEqual([false, true])
     expect(r.total).toBe(-18)
   })
 
