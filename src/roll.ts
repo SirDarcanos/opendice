@@ -66,7 +66,11 @@ export interface RollResult {
 }
 
 export interface RollContext {
-  /** Force advantage/disadvantage on the first plain d20 term. Net it yourself. */
+  /**
+   * Read the sole dice group with advantage/disadvantage, when it already has at least two
+   * dice and no conflicting keep rule, bound, explosion or advantage state. Bonus groups
+   * are added later.
+   */
   advantage?: AdvantageState
   /** Extra terms to add: plain numbers, or formula fragments like `'1d4'`. */
   bonuses?: (number | string)[]
@@ -81,25 +85,36 @@ export interface RollContext {
   tags?: Iterable<string> & object
 }
 
-/** Apply adv/dis to the first plain d20 term (roll N, keep highest/lowest). */
+/** Apply adv/dis to the sole compatible dice group in the original formula. */
 function applyAdvantage(terms: Term[], advantage: 'advantage' | 'disadvantage'): Term[] {
-  let applied = false
-  return terms.map((t) => {
-    if (applied || t.kind !== 'dice' || t.sides !== 20 || t.keep || t.bound || t.advantage) {
-      return t
-    }
-    applied = true
-    return ownProperties<DiceTerm>({
-      ...t,
-      // Unlike the `adv` suffix, this asks for advantage on a formula already written, so
-      // one die is a request to add the second rather than a contradiction to refuse: the
-      // caller wrote `1d20` and said "with advantage". A larger count is left alone, since
-      // it is the roll the caller asked for and already has dice to choose between.
-      count: Math.max(t.count, 2),
-      keep: { mode: advantage === 'advantage' ? 'kh' : 'kl', n: 1 },
-      advantage,
-    })
-  })
+  const dice = terms.filter((term): term is DiceTerm => term.kind === 'dice')
+  if (dice.length !== 1) {
+    throw new Error('Roll context requires exactly one dice group for advantage or disadvantage')
+  }
+  const target = dice[0]
+  if (target.count < 2) {
+    throw new Error('Roll context needs at least 2 dice for advantage or disadvantage')
+  }
+  if (target.advantage) {
+    if (target.advantage === advantage) return terms
+    throw new Error('Roll context conflicts with the dice group advantage state')
+  }
+  if (target.keep) {
+    throw new Error(`Roll context cannot combine ${advantage} with a keep rule`)
+  }
+  if (target.bound) throw new Error(`Roll context cannot combine ${advantage} with a bound`)
+  if (target.explode) {
+    throw new Error(`Roll context cannot combine ${advantage} with an explosion`)
+  }
+  return terms.map((term) =>
+    term === target
+      ? ownProperties<DiceTerm>({
+          ...target,
+          keep: { mode: advantage === 'advantage' ? 'kh' : 'kl', n: 1 },
+          advantage,
+        })
+      : term,
+  )
 }
 
 /**
@@ -262,8 +277,17 @@ export function roll(formula: string, ctx: RollContext = {}): RollResult {
   const rand = options.rand ?? cryptoRandom
   const parsed = parseFormula(formula, { tags: options.tags })
   let terms = parsed.terms
-  if (options.advantage && options.advantage !== 'normal') {
-    terms = applyAdvantage(terms, options.advantage)
+  const advantage = options.advantage
+  if (
+    advantage !== undefined &&
+    advantage !== 'normal' &&
+    advantage !== 'advantage' &&
+    advantage !== 'disadvantage'
+  ) {
+    throw new Error('Roll context advantage must be normal, advantage or disadvantage')
+  }
+  if (advantage === 'advantage' || advantage === 'disadvantage') {
+    terms = applyAdvantage(terms, advantage)
   }
   if (options.bonuses && options.bonuses.length > 0) {
     if (options.bonuses.length > MAX_BONUSES) {

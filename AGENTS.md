@@ -143,14 +143,15 @@ request.
   so a roll-wide field loses whichever reading came first. A keep rule that happens to select
   the same value still reports `normal`; advantage state records an explicit instruction,
   never an inference from the kept values.
-- **`RollContext.advantage` skips a bounded term**, the way it already skips one carrying a
-  keep rule. The grammar treats the two as alternatives, so stacking them would build a term
-  `parseFormula` itself would refuse.
+- **Contextual advantage reads the sole dice group in the original formula.** Its side count
+  does not matter, but it must already contain at least two dice. Several groups are
+  ambiguous; keep rules, bounds and explosions are incompatible; all throw before rolling.
+  A matching written `adv`/`dis` is already the requested reading and passes unchanged, while
+  a conflicting one throws. Bonus groups are parsed and appended afterward.
 - **`adv`/`dis` does not set the count; the count says how many dice are thrown.** So
   `4d20adv` keeps the best of four, while a count below 2 throws because there is nothing to
-  choose between. `RollContext.advantage` still bumps a plain `1d20` to two dice on purpose:
-  it modifies a formula already written, which is what the option is for, and it leaves a
-  larger count alone.
+  choose between. `RollContext.advantage` follows the same count rule rather than silently
+  adding a die.
 - **A die explodes at most 100 times**, so `results` can hold 101 entries. A die of fewer
   than two sides never explodes. Both bounds exist so a loaded `RandomSource` cannot hang the
   process, not because a fair die might reach them.

@@ -22,7 +22,7 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
-Reserved for 2.0.0 because `DieGroup` gains a required result field. No release is being cut yet.
+Reserved for 2.0.0 because `DieGroup` gains required result fields. No release is being cut yet.
 
 ### Added
 
@@ -37,10 +37,16 @@ Reserved for 2.0.0 because `DieGroup` gains a required result field. No release 
   keeps both facts instead of whichever group was evaluated last. Equivalent `kh` and `kl`
   keep rules report `normal` because they were not explicitly described as advantage or
   disadvantage.
+- Contextual advantage and disadvantage now read the sole dice group in the original
+  formula, whatever its number of sides, and require its written count to be at least 2.
+  Several groups, a conflicting written state, a keep rule, a bound or an explosion throw
+  instead of making the target depend on search order. A matching written state passes
+  unchanged. Bonus dice groups are appended afterward, and `normal` remains a universal
+  no-op. Invalid JavaScript context values now throw instead of being treated as
+  disadvantage.
 - `adv` and `dis` now require a written dice count of at least 2. `1d20adv` and `d20dis`
   throw instead of silently rolling two dice and warning; write `2d20adv` and `2d20dis`.
-  `RollContext.advantage` still adds a second die to a plain `1d20` because that option
-  modifies an already-written formula.
+  `RollContext.advantage` follows the same count rule rather than adding a die.
 - A dice formula may inspect at most 100 recognised tag entries. Entries must be lowercase
   words the grammar can produce, and duplicates count towards the limit. The 1,000-character
   formula limit now counts outer spaces instead of trimming unbounded padding first.

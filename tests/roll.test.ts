@@ -162,25 +162,28 @@ describe('roll', () => {
     expect(roll('4d6kh1', { rand: faceSeq(1, 6, 2, 3) }).dice[0].naturalHigh).toBe(true)
   })
 
-  it('applies advantage from context to a plain d20', () => {
-    const r = roll('1d20+5', { advantage: 'advantage', rand: faceSeq(4, 18) })
-    expect(r.dice[0].kept).toEqual([18])
-    expect(r.total).toBe(23)
+  it('applies advantage from context to the sole dice group, whatever its sides', () => {
+    const r = roll('2d6+5', { advantage: 'advantage', rand: faceSeq(4, 6) })
+    expect(r.dice[0].kept).toEqual([6])
+    expect(r.total).toBe(11)
     expect(r.dice[0].advantageState).toBe('advantage')
   })
 
   it('applies disadvantage from context', () => {
-    const r = roll('1d20+5', { advantage: 'disadvantage', rand: faceSeq(4, 18) })
+    const r = roll('2d6+5', { advantage: 'disadvantage', rand: faceSeq(4, 6) })
     expect(r.dice[0].kept).toEqual([4])
     expect(r.dice[0].advantageState).toBe('disadvantage')
   })
 
-  // The option asks for advantage on a formula already written, so one die is a request
-  // for the second rather than the contradiction the `adv` suffix refuses.
-  it('adds the second die when the formula only asked for one', () => {
-    const r = roll('1d20', { advantage: 'advantage', rand: faceSeq(4, 18) })
-    expect(r.dice[0].results).toHaveLength(2)
-    expect(r.dice[0].kept).toEqual([18])
+  it('refuses context when one die leaves nothing to choose between', () => {
+    expect(() =>
+      roll('1d20', {
+        advantage: 'advantage',
+        rand: () => {
+          throw new Error('randomness consumed')
+        },
+      }),
+    ).toThrow(/at least 2 dice/)
   })
 
   // A count the caller wrote is the roll they asked for, and already has dice to choose
@@ -191,10 +194,83 @@ describe('roll', () => {
     expect(r.dice[0].kept).toEqual([18])
   })
 
-  it("treats advantage 'normal' as a no-op", () => {
-    const r = roll('1d20+5', { advantage: 'normal', rand: faceSeq(7) })
-    expect(r.dice[0].results).toHaveLength(1)
-    expect(r.total).toBe(12)
+  it('refuses context when the original formula has several dice groups', () => {
+    expect(() =>
+      roll('2d20+2d6', {
+        advantage: 'advantage',
+        rand: () => {
+          throw new Error('randomness consumed')
+        },
+      }),
+    ).toThrow(/exactly one dice group/)
+  })
+
+  it('accepts matching written and contextual states but refuses a conflict', () => {
+    const matching = roll('2d6adv', { advantage: 'advantage', rand: faceSeq(2, 5) })
+    expect(matching.dice[0].kept).toEqual([5])
+    expect(matching.dice[0].advantageState).toBe('advantage')
+    expect(() =>
+      roll('2d6adv', {
+        advantage: 'disadvantage',
+        rand: () => {
+          throw new Error('randomness consumed')
+        },
+      }),
+    ).toThrow(/conflicts/)
+  })
+
+  it('refuses context when the dice group already has an incompatible reading', () => {
+    for (const [formula, message] of [
+      ['4d6kh1', /disadvantage.*keep rule/],
+      ['2d6min3', /disadvantage.*bound/],
+      ['2d6!', /disadvantage.*explosion/],
+    ] as const) {
+      expect(() =>
+        roll(formula, {
+          advantage: 'disadvantage',
+          rand: () => {
+            throw new Error('randomness consumed')
+          },
+        }),
+      ).toThrow(message)
+    }
+  })
+
+  it('composes contextual disadvantage with a sign and multiplier', () => {
+    const r = roll('-2d6x2', { advantage: 'disadvantage', rand: faceSeq(4, 1) })
+    expect(r.dice[0].kept).toEqual([1])
+    expect(r.dice[0].advantageState).toBe('disadvantage')
+    expect(r.total).toBe(-2)
+  })
+
+  it("treats advantage 'normal' as a universal no-op", () => {
+    const r = roll('1d20+1d6', { advantage: 'normal', rand: faceSeq(7, 3) })
+    expect(r.dice.map((group) => group.advantageState)).toEqual(['normal', 'normal'])
+    expect(r.total).toBe(10)
+  })
+
+  it('rejects an invalid runtime advantage before rolling', () => {
+    expect(() =>
+      roll('2d6', {
+        advantage: 'other' as 'advantage',
+        rand: () => {
+          throw new Error('randomness consumed')
+        },
+      }),
+    ).toThrow(/must be normal, advantage or disadvantage/)
+  })
+
+  it('adds bonus dice groups after applying context to the original group', () => {
+    const r = roll('2d20', {
+      advantage: 'advantage',
+      bonuses: ['1d20', '2d6dis'],
+      rand: faceSeq(4, 18, 10, 2, 5),
+    })
+    expect(r.dice.map((group) => group.advantageState)).toEqual([
+      'advantage',
+      'normal',
+      'disadvantage',
+    ])
   })
 
   it('folds in bonus terms (Bless) without touching the modifier', () => {
@@ -212,13 +288,13 @@ describe('roll', () => {
 
 describe('keptFlags', () => {
   it('marks the die advantage kept and the one it dropped', () => {
-    const r = roll('1d20+5', { advantage: 'advantage', rand: faceSeq(7, 18) })
+    const r = roll('2d20+5', { advantage: 'advantage', rand: faceSeq(7, 18) })
     expect(r.dice[0].results).toEqual([7, 18])
     expect(keptFlags(r.dice[0])).toEqual([false, true])
   })
 
   it('drops exactly one of a tied pair', () => {
-    const r = roll('1d20', { advantage: 'disadvantage', rand: faceSeq(12, 12) })
+    const r = roll('2d20', { advantage: 'disadvantage', rand: faceSeq(12, 12) })
     expect(keptFlags(r.dice[0])).toEqual([true, false])
   })
 
@@ -546,12 +622,10 @@ describe('bounds', () => {
     ])
   })
 
-  // The suffixes are alternatives, so stacking the two would build a term `parseFormula`
-  // itself refuses.
-  it('leaves a bounded d20 alone when the caller forces advantage', () => {
-    const r = roll('1d20min5', { advantage: 'advantage', rand: faceSeq(3) })
-    expect(r.dice[0].results).toEqual([3, 5])
-    expect(r.dice[0].advantageState).toBe('normal')
+  // The suffixes are alternatives, so context refuses the same combination the grammar
+  // does instead of silently ignoring the requested reading.
+  it('refuses contextual advantage on a bounded group', () => {
+    expect(() => roll('2d20min5', { advantage: 'advantage' })).toThrow(/bound/)
   })
 
   // Face first, then the group's sign — so a bound on a subtracted group takes more away.
