@@ -8,10 +8,11 @@
  * "anti-streak" or "feels-fair" logic here. Real dice clump; so do these.
  */
 
-/** A source of uniformly-distributed unsigned 32-bit integers. */
+/** A source of independent, uniformly distributed integers from 0 through 2³² − 1. */
 export type RandomSource = () => number
 
 const UINT32_RANGE = 2 ** 32
+const UINT32_MAX = UINT32_RANGE - 1
 
 /**
  * The most faces one draw can address. Above this, the largest exact multiple of `sides`
@@ -47,6 +48,20 @@ export const cryptoRandom: RandomSource = () => {
   return buf[0]
 }
 
+/** Draw one uint32 from a source without coercing malformed output into a valid value. */
+function drawUint32(rand: RandomSource): number {
+  const value = rand()
+  if (typeof value !== 'number') {
+    throw new TypeError(`rollDie: random source must return a number, got ${typeof value}`)
+  }
+  if (!Number.isInteger(value) || value < 0 || value >= UINT32_RANGE) {
+    throw new RangeError(
+      `rollDie: random source must return a whole number from 0 to ${UINT32_MAX}, got ${String(value)}`,
+    )
+  }
+  return value === 0 ? 0 : value
+}
+
 /**
  * Roll a fair die in [1, sides] using rejection sampling to remove modulo bias: draw a
  * 32-bit value, reject any landing in the short remainder above the largest exact
@@ -63,12 +78,12 @@ export function rollDie(sides: number, rand: RandomSource = cryptoRandom): numbe
   }
   // Largest multiple of `sides` that fits in the uint32 range; reject at or above it.
   const ceiling = Math.floor(UINT32_RANGE / sides) * sides
-  let x = rand() >>> 0
+  let x = drawUint32(rand)
   for (let redraws = 0; x >= ceiling; redraws++) {
     if (redraws >= MAX_REDRAWS) {
       throw new Error(`rollDie: the random source rejected ${MAX_REDRAWS} draws in a row`)
     }
-    x = rand() >>> 0
+    x = drawUint32(rand)
   }
   return (x % sides) + 1
 }

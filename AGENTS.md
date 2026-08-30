@@ -93,6 +93,10 @@ argued and settled, and the first is what makes the rest of them work:
 
 - **CSPRNG plus modulo-bias rejection, one draw per die.** Never `Math.random`, never derive
   several dice from one number, never skip the rejection loop because the skew is small.
+- **Every random-source value fails closed.** `rollDie` accepts only integer numbers from 0
+  through 2³² − 1, from the default source and injected sources alike, including every
+  rejection redraw. Never coerce a malformed value into that range: a bitwise conversion
+  silently turns `NaN`, fractions and out-of-range values into loaded dice.
 - **Never add "anti-streak" or "feels-fair" logic**, as an option or otherwise. Suppressing
   repeats is more detectably rigged over time than honest clumping, and it would make any
   record of the rolls inaccurate.

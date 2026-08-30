@@ -28,6 +28,48 @@ describe('rollDie', () => {
     expect(rollDie(6, rawSeq(ceiling, 5))).toBe(6)
   })
 
+  it('refuses non-number output without coercing it', () => {
+    for (const value of ['0', 0n, {}, undefined]) {
+      const source = (() => value) as unknown as RandomSource
+      expect(() => rollDie(6, source)).toThrow(TypeError)
+    }
+  })
+
+  it('refuses numbers outside the uint32 range', () => {
+    for (const value of [NaN, -Infinity, Infinity, -1, 0.5, 2 ** 32]) {
+      expect(() => rollDie(6, rawSeq(value))).toThrow(RangeError)
+    }
+  })
+
+  it('reads negative zero as the uint32 value zero', () => {
+    expect(rollDie(6, rawSeq(-0))).toBe(1)
+  })
+
+  it('fails on malformed output instead of drawing until the source recovers', () => {
+    let draws = 0
+    const source = () => [0.5, 0][draws++]
+    expect(() => rollDie(6, source)).toThrow(RangeError)
+    expect(draws).toBe(1)
+  })
+
+  it('validates a redraw after modulo-bias rejection', () => {
+    const ceiling = Math.floor(2 ** 32 / 6) * 6
+    expect(() => rollDie(6, rawSeq(ceiling, NaN, 5))).toThrow(RangeError)
+  })
+
+  it('preserves an error thrown by the source', () => {
+    const failure = new Error('source failed')
+    let caught: unknown
+    try {
+      rollDie(6, () => {
+        throw failure
+      })
+    } catch (error) {
+      caught = error
+    }
+    expect(caught).toBe(failure)
+  })
+
   it('throws on a non-positive or non-integer number of sides', () => {
     expect(() => rollDie(0)).toThrow()
     expect(() => rollDie(-4)).toThrow()

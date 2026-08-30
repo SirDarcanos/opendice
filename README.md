@@ -135,8 +135,9 @@ All of this applies to `roll()` by default. There is nothing to switch on.
   logic, and there will not be. Dice come up 1 three times in a row sometimes; so do these.
   Smoothing that out would make any record of the rolls inaccurate.
 - **The options you pass are read as you passed them**, so other code sharing the page
-  cannot inject its own randomness, a label, or an extra die. The exception is `rand`, which
-  replaces the randomness outright and is yours to guard.
+  cannot inject its own randomness, a label, or an extra die. The `rand` option supplies raw
+  unsigned 32-bit integers. Malformed values throw, but opendice cannot tell whether valid
+  values are fair, so the source is yours to guard.
 
 The one thing it cannot promise, and why, at
 **[rollful.dev/docs/explanation/fairness](https://rollful.dev/docs/explanation/fairness)**.

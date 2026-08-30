@@ -53,6 +53,10 @@ Reserved for 2.0.0 because `DieGroup` gains required result fields. No release i
 
 ### Fixed
 
+- `rollDie` now refuses malformed output from a `RandomSource` instead of coercing it to an
+  unsigned integer. Non-number output throws a `TypeError`; numeric output outside the
+  integer range from 0 through 2³² − 1 throws a `RangeError`. This applies to the default
+  source, injected sources and every rejection redraw.
 - Every number parsed from a formula must now remain an exact whole number. Oversized
   maximum bounds and keep counts could previously survive because they did not raise the
   total; a maximum could put `Infinity` into `results`, which JSON serialised as `null`.
