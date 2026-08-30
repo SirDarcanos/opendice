@@ -164,10 +164,14 @@ request.
   through into `RollResult.formula` and forge a line in a caller's roll log. The character
   allowlist is what stops that, not the grammar — widening it widens what a roll log can be
   made to say.
-- **A formula is untrusted input, and everything in it that drives work is bounded**: 1,000
-  dice per roll including bonuses, 2³² sides per die, 1,000 characters per formula. Each was
-  an unbounded loop or allocation before. The sides bound is not a taste call — above 2³² the
-  rejection ceiling rounds down to zero and `rollDie` never returns.
+- **A formula is untrusted input, and everything the formula interface consumes is
+  bounded**: 1,000 dice per roll including bonuses, 2³² sides per die, 1,000 characters in
+  the raw input and 100 recognised tag entries. Count raw characters before trimming and
+  tag iterations before deduplicating, or padding and an infinite duplicate generator evade
+  the limits. Every grammar number must stay an exact whole number even when it cannot raise
+  the total: an oversized `max` otherwise records `Infinity`, which JSON turns into `null`.
+  The sides bound is not a taste call — above 2³² the rejection ceiling rounds down to zero
+  and `rollDie` never returns.
 - **Optional fields are read through `ownProperties`.** Absence is how `keep`, `explode`,
   `advantage`, `tag` and every `RollContext` option are read, and a plain `{}` inherits from
   `Object.prototype`. Without it, anything able to pollute that prototype could pick the

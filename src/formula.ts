@@ -26,7 +26,7 @@ import { MAX_SIDES } from './rng.ts'
 
 export type AdvantageState = 'normal' | 'advantage' | 'disadvantage'
 
-/** Longest formula accepted. A formula this long is generated, not typed. */
+/** Longest raw formula input accepted. A formula this long is generated, not typed. */
 const MAX_FORMULA_LENGTH = 1000
 
 /**
@@ -45,11 +45,17 @@ export const MAX_EXPLOSIONS = 100
 /** A `min`/`max` bound, with the `total` prefix that sets it against the sum instead. */
 const BOUND_SUFFIX = /^(total)?(min|max)(\d+)$/
 
+/** Most recognised tag entries one parse may inspect. */
+const MAX_TAGS = 100
+
 /** Characters a formula can legitimately contain; everything else is not one. */
 const FORMULA_CHARACTERS = /[^a-z0-9+\-! ]/gi
 
 /** The first character of a formula that is not one of those, if there is one. */
 const FORBIDDEN_CHARACTER = /[^a-z0-9+\-! ]/i
+
+/** The complete shape of a tag the formula grammar can produce. */
+const TAG = /^[a-z]+$/
 
 export interface DiceTerm {
   kind: 'dice'
@@ -96,7 +102,9 @@ export interface ParseOptions {
   /**
    * Trailing words to accept as a tag, lowercased. Anything else at the end of a
    * formula is a parse error — which is the point: an unrecognised word is far more
-   * often a typo than a tag, and swallowing it would hide the mistake.
+   * often a typo than a tag, and swallowing it would hide the mistake. At most 100 entries
+   * may be inspected; each must contain only lowercase ASCII letters, and duplicates count
+   * towards the limit.
    *
    * `& object` rules out a bare string, which is an iterable of single letters: passing
    * `'fire'` rather than `['fire']` would otherwise quietly accept `f`, `i`, `r` and `e`.
@@ -123,6 +131,41 @@ export function ownProperties<T extends object>(source: T): T {
 function excerpt(text: string): string {
   const inert = text.replace(FORMULA_CHARACTERS, '?')
   return inert.length > 40 ? `${inert.slice(0, 40)}…` : inert
+}
+
+/** Read grammar digits without allowing rounding or infinity into a parsed formula. */
+function exactInteger(digits: string, field: string): number {
+  const value = Number(digits)
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`A ${field} must be a whole number that stays exact`)
+  }
+  return value
+}
+
+/** Collect a finite, valid set of tag words from caller-owned configuration. */
+function recognisedTags(accepted: ParseOptions['tags']): Set<string> {
+  if (accepted === undefined) return new Set()
+  if (typeof accepted === 'string') {
+    throw new Error('Dice tags must be a list of words, not a single string')
+  }
+  if (accepted === null || typeof accepted[Symbol.iterator] !== 'function') {
+    throw new Error('Dice tags must be an iterable list of words')
+  }
+  const tags = new Set<string>()
+  let count = 0
+  for (const tag of accepted) {
+    if (count >= MAX_TAGS) {
+      throw new Error(`A roll may recognise at most ${MAX_TAGS} tags`)
+    }
+    count++
+    if (typeof tag !== 'string' || tag.length > MAX_FORMULA_LENGTH || !TAG.test(tag)) {
+      throw new Error(
+        `A recognised tag must be a lowercase word of at most ${MAX_FORMULA_LENGTH} letters`,
+      )
+    }
+    tags.add(tag)
+  }
+  return tags
 }
 
 /** The largest total these terms could reach, for checking every total stays exact. */
@@ -199,14 +242,14 @@ function diceTerm(
   suffix: string | undefined,
   multiplierStr: string | undefined,
 ): DiceTerm {
-  const sides = Number(sidesStr)
+  const sides = exactInteger(sidesStr, 'die side count')
   if (sides < 1 || sides > MAX_SIDES) {
     throw new Error(`A die must have between 1 and ${MAX_SIDES} sides, but this one has ${sides}`)
   }
   const term: DiceTerm = {
     kind: 'dice',
     sign,
-    count: countStr === '' ? 1 : Number(countStr),
+    count: countStr === '' ? 1 : exactInteger(countStr, 'die count'),
     sides,
   }
   const bound = suffix ? BOUND_SUFFIX.exec(suffix) : null
@@ -228,7 +271,7 @@ function diceTerm(
     term.explode = true
     if (suffix === '!p') term.penetrate = true
   } else if (bound) {
-    const value = Number(bound[3])
+    const value = exactInteger(bound[3], 'bound')
     // Below 1 a `min` is a floor no die falls through and a `max` erases the dice.
     if (value < 1) {
       throw new Error(`A bound must be at least 1, but "${suffix}" bounds the dice at ${value}`)
@@ -241,14 +284,14 @@ function diceTerm(
   } else if (suffix) {
     // A blank count keeps one, the way a blank count in front of the `d` rolls one die.
     const written = suffix.slice(2)
-    const n = written === '' ? 1 : Number(written)
+    const n = written === '' ? 1 : exactInteger(written, 'keep count')
     if (n < 1) {
       throw new Error(`A keep rule must keep at least one die, but "${suffix}" keeps none`)
     }
     term.keep = { mode: suffix.slice(0, 2) as 'kh' | 'kl', n }
   }
   if (multiplierStr) {
-    const times = Number(multiplierStr.slice(1))
+    const times = exactInteger(multiplierStr.slice(1), 'multiplier')
     if (times < 1) {
       throw new Error(
         `A multiplier must be at least 1, but "${multiplierStr}" would erase the dice`,
@@ -264,12 +307,12 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
   if (typeof input !== 'string') {
     throw new Error(`A dice formula must be text, not ${typeof input}`)
   }
-  const source = input.trim()
-  if (source.length > MAX_FORMULA_LENGTH) {
+  if (input.length > MAX_FORMULA_LENGTH) {
     throw new Error(
-      `Dice formula is too long: ${source.length} characters, the limit is ${MAX_FORMULA_LENGTH}`,
+      `Dice formula is too long: ${input.length} characters, the limit is ${MAX_FORMULA_LENGTH}`,
     )
   }
+  const source = input.trim()
   // Only what a formula is written with. The parser strips whitespace before reading a
   // formula but `source` keeps it verbatim, so without this a tab, a newline or a
   // zero-width space rides through into `RollResult.formula` — and a newline there
@@ -283,11 +326,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
     )
   }
   let expr = source.toLowerCase()
-  const accepted = ownProperties(opts).tags
-  if (typeof accepted === 'string') {
-    throw new Error('Dice tags must be a list of words, not a single string')
-  }
-  const tags = accepted instanceof Set ? accepted : new Set(accepted ?? [])
+  const tags = recognisedTags(ownProperties(opts).tags)
 
   let tag: string | undefined
   // One space, not a run of them: `\s+` here backtracks quadratically over long padding,
@@ -312,7 +351,7 @@ export function parseFormula(input: string, opts: ParseOptions = {}): Formula {
     }
     const sign: 1 | -1 = m[1] === '-' ? -1 : 1
     if (m[6] !== undefined) {
-      terms.push({ kind: 'flat', value: sign * Number(m[6]) })
+      terms.push({ kind: 'flat', value: sign * exactInteger(m[6], 'modifier') })
     } else {
       terms.push(diceTerm(sign, m[2], m[3], m[4], m[5]))
     }

@@ -185,6 +185,45 @@ describe('parseFormula', () => {
   it('rejects tags given as a single string rather than a list of words', () => {
     expect(() => parseFormula('1d6 f', { tags: 'fire' as unknown as string[] })).toThrow()
   })
+
+  it('bounds tag work by entries rather than unique words', () => {
+    expect(parseFormula('1d6 fire', { tags: new Array(100).fill('fire') }).tag).toBe('fire')
+    expect(() => parseFormula('1d6', { tags: new Array(101).fill('fire') })).toThrow(
+      /at most 100 tags/,
+    )
+  })
+
+  it('stops consuming an infinite tag iterable', () => {
+    let iterations = 0
+    const tags = {
+      *[Symbol.iterator]() {
+        while (true) {
+          iterations++
+          yield 'fire'
+        }
+      },
+    }
+    expect(() => parseFormula('1d6', { tags })).toThrow(/at most 100 tags/)
+    expect(iterations).toBe(101)
+  })
+
+  it('rejects tag entries the grammar cannot produce without quoting them', () => {
+    for (const tag of ['Fire', '', 'two words', 'a'.repeat(1001), 42]) {
+      const attempt = () => parseFormula('1d6', { tags: [tag] as string[] })
+      expect(attempt).toThrow(/lowercase word/)
+      expect(attempt).not.toThrow(/Fire|two words/)
+    }
+  })
+
+  it("does not disguise an iterator's own failure", () => {
+    const failure = new Error('caller iterator failed')
+    const tags = {
+      *[Symbol.iterator](): Generator<string> {
+        throw failure
+      },
+    }
+    expect(() => parseFormula('1d6', { tags })).toThrow(failure)
+  })
 })
 
 // A formula is the one input here that routinely arrives from somewhere untrusted, so
@@ -207,6 +246,12 @@ describe('limits on what a formula may ask for', () => {
 
   it('rejects a die with no sides rather than leaving it to fail at roll time', () => {
     expect(() => parseFormula('1d0')).toThrow(/sides/)
+  })
+
+  it('counts outer spaces towards the formula length before trimming them', () => {
+    expect(parseFormula('1d6' + ' '.repeat(997)).source).toBe('1d6')
+    expect(() => parseFormula('1d6' + ' '.repeat(998))).toThrow(/too long/)
+    expect(() => parseFormula(' '.repeat(50_000) + '1d6')).toThrow(/too long/)
   })
 
   it('rejects a formula too long to have been typed', () => {
@@ -291,10 +336,15 @@ describe('bounds', () => {
     expect(() => parseFormula('1d6!min2')).toThrow()
   })
 
+  it('refuses a bound that cannot itself stay exact', () => {
+    expect(() => parseFormula('1d6min9007199254740992')).toThrow(/stays exact/)
+    expect(() => parseFormula('1d6max9007199254740992')).toThrow(/stays exact/)
+    expect(() => parseFormula('1d6max' + '9'.repeat(400))).toThrow(/stays exact/)
+  })
+
   // Each of these reaches the ceiling by a different route through `largestTotal`, which
   // is why they are checked one at a time rather than as one case.
   it('refuses a bound that puts the total past exact whole numbers', () => {
-    expect(() => parseFormula('1d6min9007199254740992')).toThrow(/stop being exact/)
     expect(() => parseFormula('1d6min9007199254740991+1')).toThrow(/stop being exact/)
     expect(() => parseFormula('1000d6min9007199254740991')).toThrow(/stop being exact/)
     expect(() => parseFormula('1d6min4503599627370496x2')).toThrow(/stop being exact/)
@@ -310,6 +360,17 @@ describe('bounds', () => {
     expect(parseFormula('1d6max9007199254740991').terms[0]).toMatchObject({
       bound: { mode: 'max', value: 9007199254740991 },
     })
+  })
+
+  it('keeps every parsed number exact even when it cannot raise the total', () => {
+    expect(parseFormula(`4d6kh${Number.MAX_SAFE_INTEGER}`).terms[0]).toMatchObject({
+      keep: { n: Number.MAX_SAFE_INTEGER },
+    })
+    expect(() => parseFormula('4d6kh9007199254740992')).toThrow(/stays exact/)
+    expect(parseFormula(`1d1x${Number.MAX_SAFE_INTEGER}`).terms[0]).toMatchObject({
+      multiplier: Number.MAX_SAFE_INTEGER,
+    })
+    expect(() => parseFormula('1d1x9007199254740992')).toThrow(/stays exact/)
   })
 
   // The bound is `\d+`, so nothing else reaches `Number`: no sign, no point, no NaN.

@@ -30,8 +30,17 @@ Reserved for 2.0.0 because `DieGroup` gains a required result field. No release 
   preserve which occurrence counted when a die and a bound recorded the same number.
   `results` and `kept` keep their existing contents and order.
 
+### Changed
+
+- A dice formula may inspect at most 100 recognised tag entries. Entries must be lowercase
+  words the grammar can produce, and duplicates count towards the limit. The 1,000-character
+  formula limit now counts outer spaces instead of trimming unbounded padding first.
+
 ### Fixed
 
+- Every number parsed from a formula must now remain an exact whole number. Oversized
+  maximum bounds and keep counts could previously survive because they did not raise the
+  total; a maximum could put `Infinity` into `results`, which JSON serialised as `null`.
 - `keptFlags(group)` now reads the markers recorded during the roll instead of matching
   equal numbers afterward. It previously marked the wrong entries when equal values from
   different per-die or total bounds did not share the same outcome. Existing calls keep

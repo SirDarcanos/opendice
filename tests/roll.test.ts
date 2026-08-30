@@ -609,6 +609,19 @@ describe('limits', () => {
   it('takes a negative whole bonus', () => {
     expect(roll('1d6', { rand: faceSeq(4), bonuses: [-2] }).total).toBe(2)
   })
+
+  it('rejects an inexact formula before consuming randomness', () => {
+    let calls = 0
+    expect(() =>
+      roll('1d6max9007199254740992', {
+        rand: () => {
+          calls++
+          return 0
+        },
+      }),
+    ).toThrow(/stays exact/)
+    expect(calls).toBe(0)
+  })
 })
 
 describe('negative and signed terms', () => {
