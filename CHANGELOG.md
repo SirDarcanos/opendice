@@ -32,10 +32,8 @@ Reserved for 2.0.0 because `DieGroup` gains required result fields. No release i
 
 ### Changed
 
-- The default CSPRNG now fetches 256 independent uint32 words per platform call instead of
-  one. Each die still consumes its own word and uses the same rejection sampling. Across
-  Node 20–24, current browsers and workerd, complete-roll benchmarks improved by 1.47× to
-  10.95×; the reproducible harness and raw results live under `benchmarks/rng`.
+- The default CSPRNG now fetches 256 independent words per platform call. Complete-roll
+  benchmarks improved by 1.47× to 10.95× without changing rejection sampling.
 - Advantage state now belongs to each dice group. `DieGroup.advantageState` is required and
   `RollResult.advantageState` has been removed, so a formula containing both `adv` and `dis`
   keeps both facts instead of whichever group was evaluated last. Equivalent `kh` and `kl`
@@ -57,10 +55,8 @@ Reserved for 2.0.0 because `DieGroup` gains required result fields. No release i
 
 ### Fixed
 
-- `rollDie` now refuses malformed output from a `RandomSource` instead of coercing it to an
-  unsigned integer. Non-number output throws a `TypeError`; numeric output outside the
-  integer range from 0 through 2³² − 1 throws a `RangeError`. This applies to the default
-  source, injected sources and every rejection redraw.
+- `rollDie` now rejects malformed `RandomSource` output instead of coercing it. Non-numbers
+  throw `TypeError`; numbers outside the uint32 range throw `RangeError`.
 - Every number parsed from a formula must now remain an exact whole number. Oversized
   maximum bounds and keep counts could previously survive because they did not raise the
   total; a maximum could put `Infinity` into `results`, which JSON serialised as `null`.
