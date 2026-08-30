@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Nicola Mustone
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { keptFlags, roll, soleDieGroup } from '../src/roll.ts'
-import { resetAdvantageWarnings } from '../src/formula.ts'
 import type { RandomSource } from '../src/rng.ts'
 
 /** Deterministic source: yields the given die faces in order (face f -> f-1 raw). */
@@ -98,23 +97,17 @@ describe('roll', () => {
     expect(d.advantageState).toBe('disadvantage')
   })
 
-  // `1d20adv` still rolls, and still rolls two dice — the count is read as 2 and the
-  // caller told about it, rather than the roll being refused out from under them.
-  it('rolls a single-die advantage formula as two, with a warning', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    resetAdvantageWarnings()
-
-    const r = roll('1d20adv+5', { rand: faceSeq(4, 18) })
-    expect(r.dice[0].results).toEqual([4, 18])
-    expect(r.dice[0].kept).toEqual([18])
-    expect(r.total).toBe(23)
-    expect(r.advantageState).toBe('advantage')
-    // The formula is the caller's text, kept as written even though 2 dice were rolled.
-    expect(r.formula).toBe('1d20adv+5')
-    expect(warn).toHaveBeenCalledTimes(1)
-
-    vi.restoreAllMocks()
-    resetAdvantageWarnings()
+  it('refuses a single-die advantage formula before rolling', () => {
+    let calls = 0
+    expect(() =>
+      roll('1d20adv+5', {
+        rand: () => {
+          calls++
+          return 0
+        },
+      }),
+    ).toThrow(/at least 2 dice/)
+    expect(calls).toBe(0)
   })
 
   it('keeps the highest N (4d6kh3)', () => {

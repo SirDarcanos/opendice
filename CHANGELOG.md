@@ -32,6 +32,10 @@ Reserved for 2.0.0 because `DieGroup` gains a required result field. No release 
 
 ### Changed
 
+- `adv` and `dis` now require a written dice count of at least 2. `1d20adv` and `d20dis`
+  throw instead of silently rolling two dice and warning; write `2d20adv` and `2d20dis`.
+  `RollContext.advantage` still adds a second die to a plain `1d20` because that option
+  modifies an already-written formula.
 - A dice formula may inspect at most 100 recognised tag entries. Entries must be lowercase
   words the grammar can produce, and duplicates count towards the limit. The 1,000-character
   formula limit now counts outer spaces instead of trimming unbounded padding first.

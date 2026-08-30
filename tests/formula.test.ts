@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Nicola Mustone
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { parseFormula, resetAdvantageWarnings } from '../src/formula.ts'
+import { afterEach, describe, expect, it } from 'vitest'
+import { parseFormula } from '../src/formula.ts'
 
 describe('parseFormula', () => {
-  // A warning is given once per process, so without this the second test to parse
-  // `1d20adv` would watch a console that has already said its piece.
-  afterEach(() => {
-    vi.restoreAllMocks()
-    resetAdvantageWarnings()
-  })
-
   it('parses dice and a flat modifier', () => {
     expect(parseFormula('2d6+4').terms).toEqual([
       { kind: 'dice', sign: 1, count: 2, sides: 6 },
@@ -58,60 +51,12 @@ describe('parseFormula', () => {
     })
   })
 
-  // One die has nothing to choose between, so it is read as two rather than refused —
-  // `1d20adv` is what callers have written since the suffix existed. The warning is what
-  // makes the difference visible, since `formula` still reports the text as written.
-  it('reads a single die as two', () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(parseFormula('1d20adv').terms[0]).toMatchObject({
-      count: 2,
-      advantage: 'advantage',
-      keep: { mode: 'kh', n: 1 },
-    })
-    // A blank count is one die, and reads the same way.
-    expect(parseFormula('d20dis').terms[0]).toMatchObject({
-      count: 2,
-      advantage: 'disadvantage',
-      keep: { mode: 'kl', n: 1 },
-    })
-    // The text is kept as written, which is why the warning has to be worth reading.
-    expect(parseFormula('1d20adv+5').source).toBe('1d20adv+5')
-  })
-
-  it('warns once per suffix, naming the formula to write instead', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    parseFormula('1d20adv')
-    expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0][0]).toContain('"1d20adv" rolls 2 dice, not 1')
-    expect(warn.mock.calls[0][0]).toContain('write "2d20adv"')
-
-    // The same suffix again says nothing: a warning on every roll of a long fight is a
-    // warning nobody reads.
-    parseFormula('1d20adv')
-    parseFormula('d20adv+3')
-    expect(warn).toHaveBeenCalledTimes(1)
-
-    // The other suffix has not been said yet, so it is.
-    parseFormula('1d20dis')
-    expect(warn).toHaveBeenCalledTimes(2)
-    expect(warn.mock.calls[1][0]).toContain('write "2d20dis"')
-  })
-
-  // The count the caller wrote is the roll they asked for, so there is nothing to say.
-  it('says nothing when the count already has dice to choose between', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    parseFormula('2d20adv')
-    parseFormula('4d20adv')
-    parseFormula('3d20dis')
-    expect(warn).not.toHaveBeenCalled()
-  })
-
-  // Reading it as two would turn "roll nothing" into a roll.
-  it('still refuses a count of zero', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(() => parseFormula('0d20adv')).toThrow(/at least one die/)
-    expect(warn).not.toHaveBeenCalled()
+  // One die leaves the suffix nothing to choose between, so the written count is refused
+  // rather than silently changed into a different roll.
+  it('refuses advantage or disadvantage with fewer than two dice', () => {
+    expect(() => parseFormula('1d20adv')).toThrow(/at least 2 dice/)
+    expect(() => parseFormula('d20dis')).toThrow(/at least 2 dice/)
+    expect(() => parseFormula('0d20adv')).toThrow(/at least 2 dice/)
   })
 
   it('parses keep-highest/lowest', () => {

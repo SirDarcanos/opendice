@@ -143,19 +143,10 @@ request.
   keep rule. The grammar treats the two as alternatives, so stacking them would build a term
   `parseFormula` itself would refuse.
 - **`adv`/`dis` does not set the count; the count says how many dice are thrown.** So
-  `4d20adv` keeps the best of four. It used to force `count = 2` and discard whatever was
-  written, which made `4d20adv` roll two dice silently. A count of 1 is read as 2 and
-  warned about rather than refused — `1d20adv` is what every caller has written since the
-  suffix existed — and a count of 0 is left for `assertRollable` to refuse, since reading
-  it as 2 would turn "roll nothing" into a roll. `RollContext.advantage` warns nothing and
-  bumps a plain `1d20` to two dice on purpose: it modifies a formula already written, which
-  is what the option is for, and it leaves a larger count alone.
-- **The deprecation warning is deduplicated by suffix, not by formula.** Two entries at
-  most. A set keyed on the formula is filled from untrusted input — `1d20adv`, `01d20adv`,
-  `001d20adv` and so on all parse to the same roll and would each add a line to it. It
-  fires once per process rather than per roll, because a warning on every roll of a long
-  fight is a warning nobody reads, and because this is a library writing to somebody
-  else's console.
+  `4d20adv` keeps the best of four, while a count below 2 throws because there is nothing to
+  choose between. `RollContext.advantage` still bumps a plain `1d20` to two dice on purpose:
+  it modifies a formula already written, which is what the option is for, and it leaves a
+  larger count alone.
 - **A die explodes at most 100 times**, so `results` can hold 101 entries. A die of fewer
   than two sides never explodes. Both bounds exist so a loaded `RandomSource` cannot hang the
   process, not because a fair die might reach them.
