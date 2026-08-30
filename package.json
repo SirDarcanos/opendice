@@ -27,6 +27,8 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "benchmark:rng": "npm run build && node benchmarks/rng/run-node.mjs",
+    "benchmark:rng:browser": "npm run build && node benchmarks/rng/serve-browser.mjs",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [

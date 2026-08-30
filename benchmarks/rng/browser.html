@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenDice CSPRNG refill benchmark</title>
+  </head>
+  <body>
+    <main>
+      <h1>OpenDice CSPRNG refill benchmark</h1>
+      <p id="status">Running…</p>
+      <pre id="result"></pre>
+    </main>
+    <script type="module">
+      import { runRngBenchmark } from '/benchmarks/rng/benchmark.mjs'
+
+      const name = new URL(location.href).searchParams.get('name') ?? 'browser'
+      const result = runRngBenchmark({
+        runtime: name,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      })
+      document.querySelector('#result').textContent = JSON.stringify(result, null, 2)
+
+      const response = await fetch(`/result?name=${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(result),
+      })
+      document.querySelector('#status').textContent = response.ok
+        ? 'Finished. The result was saved.'
+        : 'Finished, but the result could not be saved.'
+    </script>
+  </body>
+</html>

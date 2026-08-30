@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 560" role="img" aria-labelledby="title description">
+  <title id="title">Median roll speedup from a 256-word CSPRNG buffer</title>
+  <desc id="description">Horizontal bars compare d20, 2d6 plus 3, and 1000d6 roll speedups in Chrome, Firefox, Node 20, Node 22, Node 24, Safari, and workerd.</desc>
+  <style>
+    text { font-family: ui-sans-serif, system-ui, sans-serif; fill: #1e293b; }
+    .title { font-size: 25px; font-weight: 700; }
+    .subtitle { font-size: 14px; fill: #475569; }
+    .panel { font-size: 16px; font-weight: 700; }
+    .runtime, .value { font-size: 13px; }
+    .value { font-variant-numeric: tabular-nums; font-weight: 650; }
+    .rule { stroke: #cbd5e1; }
+    .track { fill: #e7e5e4; }
+    .bar { fill: #4f46e5; }
+  </style>
+  <rect width="1120" height="560" fill="#fafaf9"/>
+  <text x="40" y="48" class="title">Median roll speedup from a 256-word CSPRNG buffer</text>
+  <text x="40" y="78" class="subtitle">Same platform CSPRNG and rejection sampling; seven samples after two warmups</text>
+  <text x="110" y="112" class="panel">One d20</text>
+  <line x1="110" y1="127" x2="372" y2="127" class="rule"/><text x="98" y="152" text-anchor="end" class="runtime">Chrome 152</text>
+  <rect x="110" y="135" width="262" height="24" rx="3" class="track"/>
+  <rect x="110" y="135" width="234.21" height="24" rx="3" class="bar"/>
+  <text x="380" y="152" class="value">44.70×</text><text x="98" y="200" text-anchor="end" class="runtime">Firefox 152</text>
+  <rect x="110" y="183" width="262" height="24" rx="3" class="track"/>
+  <rect x="110" y="183" width="32.19" height="24" rx="3" class="bar"/>
+  <text x="380" y="200" class="value">6.14×</text><text x="98" y="248" text-anchor="end" class="runtime">Node 20</text>
+  <rect x="110" y="231" width="262" height="24" rx="3" class="track"/>
+  <rect x="110" y="231" width="81.64" height="24" rx="3" class="bar"/>
+  <text x="380" y="248" class="value">15.58×</text><text x="98" y="296" text-anchor="end" class="runtime">Node 22</text>
+  <rect x="110" y="279" width="262" height="24" rx="3" class="track"/>
+  <rect x="110" y="279" width="69.98" height="24" rx="3" class="bar"/>
+  <text x="380" y="296" class="value">13.36×</text><text x="98" y="344" text-anchor="end" class="runtime">Node 24</text>
+  <rect x="110" y="327" width="262" height="24" rx="3" class="track"/>
+  <rect x="110" y="327" width="66.23" height="24" rx="3" class="bar"/>
+  <text x="380" y="344" class="value">12.64×</text><text x="98" y="392" text-anchor="end" class="runtime">Safari 26</text>
+  <rect x="110" y="375" width="262" height="24" rx="3" class="track"/>
+  <rect x="110" y="375" width="18.58" height="24" rx="3" class="bar"/>
+  <text x="380" y="392" class="value">3.55×</text><text x="98" y="440" text-anchor="end" class="runtime">workerd</text>
+  <rect x="110" y="423" width="262" height="24" rx="3" class="track"/>
+  <rect x="110" y="423" width="91.70" height="24" rx="3" class="bar"/>
+  <text x="380" y="440" class="value">17.50×</text>
+  <text x="450" y="112" class="panel">2d6 + 3</text>
+  <line x1="450" y1="127" x2="712" y2="127" class="rule"/>
+  <rect x="450" y="135" width="262" height="24" rx="3" class="track"/>
+  <rect x="450" y="135" width="256.63" height="24" rx="3" class="bar"/>
+  <text x="720" y="152" class="value">3.92×</text>
+  <rect x="450" y="183" width="262" height="24" rx="3" class="track"/>
+  <rect x="450" y="183" width="135.37" height="24" rx="3" class="bar"/>
+  <text x="720" y="200" class="value">2.07×</text>
+  <rect x="450" y="231" width="262" height="24" rx="3" class="track"/>
+  <rect x="450" y="231" width="189.52" height="24" rx="3" class="bar"/>
+  <text x="720" y="248" class="value">2.89×</text>
+  <rect x="450" y="279" width="262" height="24" rx="3" class="track"/>
+  <rect x="450" y="279" width="178.71" height="24" rx="3" class="bar"/>
+  <text x="720" y="296" class="value">2.73×</text>
+  <rect x="450" y="327" width="262" height="24" rx="3" class="track"/>
+  <rect x="450" y="327" width="173.35" height="24" rx="3" class="bar"/>
+  <text x="720" y="344" class="value">2.65×</text>
+  <rect x="450" y="375" width="262" height="24" rx="3" class="track"/>
+  <rect x="450" y="375" width="98.25" height="24" rx="3" class="bar"/>
+  <text x="720" y="392" class="value">1.50×</text>
+  <rect x="450" y="423" width="262" height="24" rx="3" class="track"/>
+  <rect x="450" y="423" width="96.07" height="24" rx="3" class="bar"/>
+  <text x="720" y="440" class="value">1.47×</text>
+  <text x="790" y="112" class="panel">1,000d6</text>
+  <line x1="790" y1="127" x2="1052" y2="127" class="rule"/>
+  <rect x="790" y="135" width="262" height="24" rx="3" class="track"/>
+  <rect x="790" y="135" width="239.04" height="24" rx="3" class="bar"/>
+  <text x="1060" y="152" class="value">10.95×</text>
+  <rect x="790" y="183" width="262" height="24" rx="3" class="track"/>
+  <rect x="790" y="183" width="80.62" height="24" rx="3" class="bar"/>
+  <text x="1060" y="200" class="value">3.69×</text>
+  <rect x="790" y="231" width="262" height="24" rx="3" class="track"/>
+  <rect x="790" y="231" width="195.22" height="24" rx="3" class="bar"/>
+  <text x="1060" y="248" class="value">8.94×</text>
+  <rect x="790" y="279" width="262" height="24" rx="3" class="track"/>
+  <rect x="790" y="279" width="153.24" height="24" rx="3" class="bar"/>
+  <text x="1060" y="296" class="value">7.02×</text>
+  <rect x="790" y="327" width="262" height="24" rx="3" class="track"/>
+  <rect x="790" y="327" width="150.23" height="24" rx="3" class="bar"/>
+  <text x="1060" y="344" class="value">6.88×</text>
+  <rect x="790" y="375" width="262" height="24" rx="3" class="track"/>
+  <rect x="790" y="375" width="54.58" height="24" rx="3" class="bar"/>
+  <text x="1060" y="392" class="value">2.50×</text>
+  <rect x="790" y="423" width="262" height="24" rx="3" class="track"/>
+  <rect x="790" y="423" width="71.74" height="24" rx="3" class="bar"/>
+  <text x="1060" y="440" class="value">3.29×</text>
+</svg>
