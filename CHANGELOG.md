@@ -32,6 +32,10 @@ Reserved for 2.0.0 because `DieGroup` gains required result fields. No release i
 
 ### Changed
 
+- The default CSPRNG now fetches 256 independent uint32 words per platform call instead of
+  one. Each die still consumes its own word and uses the same rejection sampling. Across
+  Node 20–24, current browsers and workerd, complete-roll benchmarks improved by 1.47× to
+  10.95×; the reproducible harness and raw results live under `benchmarks/rng`.
 - Advantage state now belongs to each dice group. `DieGroup.advantageState` is required and
   `RollResult.advantageState` has been removed, so a formula containing both `adv` and `dis`
   keeps both facts instead of whichever group was evaluated last. Equivalent `kh` and `kl`

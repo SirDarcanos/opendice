@@ -93,6 +93,9 @@ argued and settled, and the first is what makes the rest of them work:
 
 - **CSPRNG plus modulo-bias rejection, one draw per die.** Never `Math.random`, never derive
   several dice from one number, never skip the rejection loop because the skew is small.
+  The platform fills 256 independent uint32 words per call and each die consumes its own
+  word. Change that refill size only after rerunning `benchmarks/rng` across every supported
+  runtime; 256 is the measured knee between steady-state speed and first-refill cost.
 - **Every random-source value fails closed.** `rollDie` accepts only integer numbers from 0
   through 2³² − 1, from the default source and injected sources alike, including every
   rejection redraw. Never coerce a malformed value into that range: a bitwise conversion

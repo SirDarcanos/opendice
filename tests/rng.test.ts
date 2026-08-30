@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Nicola Mustone
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { rollDie, type RandomSource } from '../src/rng.ts'
 import { roll } from '../src/roll.ts'
 
@@ -126,6 +126,27 @@ describe('rollDie', () => {
  * default source and check the shape of what comes out.
  */
 describe('the default source, which every other test replaces', () => {
+  it('refills 256 independent words at a time', async () => {
+    const real = crypto.getRandomValues
+    let refills = 0
+    crypto.getRandomValues = ((words: Uint32Array) => {
+      const start = refills++ * words.length
+      for (let i = 0; i < words.length; i++) words[i] = start + i
+      return words
+    }) as typeof crypto.getRandomValues
+
+    try {
+      vi.resetModules()
+      const { cryptoRandom: isolatedSource } = await import('../src/rng.ts')
+      const values = Array.from({ length: 257 }, isolatedSource)
+      expect(refills).toBe(2)
+      expect(values).toEqual(Array.from({ length: 257 }, (_, i) => i))
+    } finally {
+      crypto.getRandomValues = real
+      vi.resetModules()
+    }
+  })
+
   /** Pearson's chi-square against a flat expectation. */
   function chiSquare(counts: number[], draws: number): number {
     const expected = draws / counts.length

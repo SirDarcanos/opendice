@@ -38,14 +38,23 @@ const MAX_REDRAWS = 1000
  */
 const getRandomValues = crypto.getRandomValues.bind(crypto)
 
+/** Number of independent uint32 words fetched from the platform CSPRNG in one refill. */
+const CSPRNG_BUFFER_SIZE = 256
+
+const randomWords = new Uint32Array(CSPRNG_BUFFER_SIZE)
+let nextRandomWord = randomWords.length
+
 /**
  * The platform CSPRNG — `crypto.getRandomValues`, not `Math.random`, whose quality the
  * spec allows to vary across engines. Available in browsers and in Node 19 and later.
+ * Words are fetched 256 at a time; each call still returns one independent word.
  */
 export const cryptoRandom: RandomSource = () => {
-  const buf = new Uint32Array(1)
-  getRandomValues(buf)
-  return buf[0]
+  if (nextRandomWord === randomWords.length) {
+    getRandomValues(randomWords)
+    nextRandomWord = 0
+  }
+  return randomWords[nextRandomWord++]
 }
 
 /** Draw one uint32 from a source without coercing malformed output into a valid value. */

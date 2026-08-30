@@ -130,7 +130,8 @@ All of this applies to `roll()` by default. There is nothing to switch on.
 - **Modulo bias is removed, not ignored.** Reducing a 32-bit number to a d6 naively makes
   some faces slightly likelier. Draws that would cause that are discarded and redrawn, so
   every face is exactly as likely as every other.
-- **One draw per die.** Several dice are never derived from one number.
+- **One independent word per die.** The platform fills those words in batches; several dice
+  are never derived from one number.
 - **No result is ever adjusted.** There is no "you have rolled badly, here is a good one"
   logic, and there will not be. Dice come up 1 three times in a row sometimes; so do these.
   Smoothing that out would make any record of the rolls inaccurate.
@@ -138,6 +139,18 @@ All of this applies to `roll()` by default. There is nothing to switch on.
   cannot inject its own randomness, a label, or an extra die. The `rand` option supplies raw
   unsigned 32-bit integers. Malformed values throw, but opendice cannot tell whether valid
   values are fair, so the source is yours to guard.
+
+<details>
+<summary>Why the platform fills 256 words at a time</summary>
+
+A benchmark across Node 20–24, Chrome, Firefox, Safari and workerd found that 256 words is the
+best balance between first-refill cost and complete-roll speed.
+
+[![Median roll speedup from a 256-word CSPRNG buffer](https://raw.githubusercontent.com/SirDarcanos/opendice/main/benchmarks/rng/speedup.svg)](./benchmarks/rng/RESULTS.md)
+
+[Method, raw samples and limitations](./benchmarks/rng/RESULTS.md)
+
+</details>
 
 The one thing it cannot promise, and why, at
 **[rollful.dev/docs/explanation/fairness](https://rollful.dev/docs/explanation/fairness)**.
