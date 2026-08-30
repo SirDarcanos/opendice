@@ -22,48 +22,33 @@ A rename is not a version, so it has no entry below.
 
 ## [Unreleased]
 
-Reserved for 2.0.0 because `DieGroup` gains required result fields. No release is being cut yet.
+Nothing yet.
+
+## [2.0.0] — 2026-08-30
+
+Dice-group facts are now complete, formula inputs fail closed, and the default CSPRNG is faster.
 
 ### Added
 
-- Every dice group now reports `keptFlags`, one boolean per entry in `results`. The markers
-  preserve which occurrence counted when a die and a bound recorded the same number.
-  `results` and `kept` keep their existing contents and order.
+- **Breaking:** required `DieGroup.keptFlags` records which occurrence in `results` counted.
 
 ### Changed
 
-- The default CSPRNG now fetches 256 independent words per platform call. Complete-roll
-  benchmarks improved by 1.47× to 10.95× without changing rejection sampling.
-- Advantage state now belongs to each dice group. `DieGroup.advantageState` is required and
-  `RollResult.advantageState` has been removed, so a formula containing both `adv` and `dis`
-  keeps both facts instead of whichever group was evaluated last. Equivalent `kh` and `kl`
-  keep rules report `normal` because they were not explicitly described as advantage or
-  disadvantage.
-- Contextual advantage and disadvantage now read the sole dice group in the original
-  formula, whatever its number of sides, and require its written count to be at least 2.
-  Several groups, a conflicting written state, a keep rule, a bound or an explosion throw
-  instead of making the target depend on search order. A matching written state passes
-  unchanged. Bonus dice groups are appended afterward, and `normal` remains a universal
-  no-op. Invalid JavaScript context values now throw instead of being treated as
-  disadvantage.
-- `adv` and `dis` now require a written dice count of at least 2. `1d20adv` and `d20dis`
-  throw instead of silently rolling two dice and warning; write `2d20adv` and `2d20dis`.
-  `RollContext.advantage` follows the same count rule rather than adding a die.
-- A dice formula may inspect at most 100 recognised tag entries. Entries must be lowercase
-  words the grammar can produce, and duplicates count towards the limit. The 1,000-character
-  formula limit now counts outer spaces instead of trimming unbounded padding first.
+- **Breaking:** advantage state moved from `RollResult` to each `DieGroup`; equivalent `kh`
+  and `kl` rules report `normal`.
+- **Breaking:** contextual advantage requires one compatible original dice group with at
+  least two dice; ambiguous, conflicting and invalid requests throw before rolling.
+- **Breaking:** `adv` and `dis` require a written count of at least 2 instead of adding a die.
+- Formula length counts raw input, recognised tags are bounded, and every grammar number must
+  stay exact.
+- The default CSPRNG fetches 256 independent words per platform call, improving complete-roll
+  benchmarks by 1.47× to 10.95× without changing rejection sampling.
 
 ### Fixed
 
-- `rollDie` now rejects malformed `RandomSource` output instead of coercing it. Non-numbers
-  throw `TypeError`; numbers outside the uint32 range throw `RangeError`.
-- Every number parsed from a formula must now remain an exact whole number. Oversized
-  maximum bounds and keep counts could previously survive because they did not raise the
-  total; a maximum could put `Infinity` into `results`, which JSON serialised as `null`.
-- `keptFlags(group)` now reads the markers recorded during the roll instead of matching
-  equal numbers afterward. It previously marked the wrong entries when equal values from
-  different per-die or total bounds did not share the same outcome. Existing calls keep
-  working, and old objects without recorded markers retain the former best-effort matching.
+- `rollDie` rejects malformed `RandomSource` output with `TypeError` or `RangeError` instead
+  of coercing it.
+- `keptFlags(group)` uses stored markers; old objects retain best-effort value matching.
 
 ## [1.4.0] — 2026-08-22
 
@@ -252,7 +237,8 @@ First release.
 - A `rand` option taking any `RandomSource`, so rolls can be made deterministic in tests.
 - TypeScript types, source maps, and npm provenance on every published release.
 
-[unreleased]: https://github.com/SirDarcanos/opendice/compare/v1.4.0...HEAD
+[unreleased]: https://github.com/SirDarcanos/opendice/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/SirDarcanos/opendice/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/SirDarcanos/opendice/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/SirDarcanos/opendice/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/SirDarcanos/opendice/compare/v1.1.0...v1.2.0
